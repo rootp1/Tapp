@@ -53,7 +53,7 @@ class TonService {
       logger.info(`Transaction verified successfully: ${hash}`);
       return true;
     } catch (error) {
-      logger.error('Error verifying transaction:', error);
+      logger.error('Error verifying transaction:', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -83,7 +83,7 @@ class TonService {
 
       return null;
     } catch (error) {
-      logger.error('Error fetching transaction:', error);
+      logger.error('Error fetching transaction:', error instanceof Error ? error.message : String(error));
       return null;
     }
   }

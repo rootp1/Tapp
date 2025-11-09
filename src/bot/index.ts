@@ -404,6 +404,8 @@ class TappBot {
       // Send teaser message to channel
       // Use the bot's WebApp short name from BotFather
       const webAppUrl = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}/myapp?startapp=${postId}`;
+      
+      logger.info(`Creating post with unlock URL: ${webAppUrl}`);
 
       const teaserMessage = await this.bot.telegram.sendMessage(
         postData.channelId,
@@ -423,6 +425,7 @@ class TappBot {
         creatorId: userId,
         teaserMessageId: teaserMessage.message_id,
         price: postData.price,
+        currency: 'TON',
         teaserText: postData.teaserText || '',
         contentType: postData.contentType,
         contentData: postData.contentData || '',
