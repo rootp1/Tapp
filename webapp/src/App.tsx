@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { TonConnectButton, useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
-import { initMiniApp, miniApp } from '@telegram-apps/sdk';
 import axios from 'axios';
 import './App.css';
 
@@ -34,8 +33,7 @@ function App() {
   useEffect(() => {
     // Initialize Telegram Mini App
     try {
-      initMiniApp();
-      miniApp.ready();
+      tg?.ready();
       tg?.expand();
       tg?.enableClosingConfirmation();
     } catch (e) {
