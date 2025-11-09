@@ -16,6 +16,7 @@ interface SessionData {
     channelTitle?: string;
     price?: number;
     teaserText?: string;
+    previewFileId?: string;
     contentType?: string;
     contentData?: string;
     fileId?: string;
@@ -174,6 +175,9 @@ class TappBot {
         case 'awaiting_teaser':
           await this.handleTeaserInput(ctx);
           break;
+        case 'awaiting_preview':
+          await this.handlePreviewInput(ctx);
+          break;
         case 'awaiting_content':
           await this.handleContentInput(ctx);
           break;
@@ -325,11 +329,51 @@ class TappBot {
 
     if (ctx.session?.postData) {
       ctx.session.postData.teaserText = text;
-      ctx.session.step = 'awaiting_content';
+      ctx.session.step = 'awaiting_preview';
     }
 
     await ctx.reply(
       `Teaser saved! ✅\n\n` +
+      `Now send a preview image/video (optional - this will be shown in the channel):\n\n` +
+      `Send a photo, video, or document, OR send /skip to skip preview.`
+    );
+  }
+
+  private async handlePreviewInput(ctx: BotContext) {
+    const message = ctx.message as any;
+
+    // Check if user wants to skip preview
+    if (message.text === '/skip') {
+      if (ctx.session) {
+        ctx.session.step = 'awaiting_content';
+      }
+      await ctx.reply(
+        `Preview skipped. ✅\n\n` +
+        `Now send the premium content (text, photo, video, or document):`
+      );
+      return;
+    }
+
+    let previewFileId = '';
+
+    if (message.photo) {
+      previewFileId = message.photo[message.photo.length - 1].file_id;
+    } else if (message.video) {
+      previewFileId = message.video.file_id;
+    } else if (message.document) {
+      previewFileId = message.document.file_id;
+    } else {
+      await ctx.reply('Please send a photo, video, or document for preview, or send /skip to skip.');
+      return;
+    }
+
+    if (ctx.session?.postData) {
+      ctx.session.postData.previewFileId = previewFileId;
+      ctx.session.step = 'awaiting_content';
+    }
+
+    await ctx.reply(
+      `Preview saved! ✅\n\n` +
       `Now send the premium content (text, photo, video, or document):`
     );
   }
@@ -413,16 +457,59 @@ class TappBot {
       
       logger.info(`Creating post with unlock URL: ${webAppUrl}`);
 
-      const teaserMessage = await this.bot.telegram.sendMessage(
-        postData.channelId,
-        `🔒 *Premium Content*\n\n${postData.teaserText}\n\n💎 Price: ${postData.price} TON`,
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            Markup.button.url('🔓 Unlock Now', webAppUrl),
-          ]),
+      const caption = `🔒 *Premium Content*\n\n${postData.teaserText}\n\n💎 Price: ${postData.price} TON`;
+      const keyboard = Markup.inlineKeyboard([
+        Markup.button.url('🔓 Unlock Now', webAppUrl),
+      ]);
+
+      let teaserMessage;
+
+      // Send preview media if available, otherwise just text
+      if (postData.previewFileId) {
+        // Determine media type from the first part of file_id or try each method
+        try {
+          teaserMessage = await this.bot.telegram.sendPhoto(
+            postData.channelId,
+            postData.previewFileId,
+            {
+              caption,
+              parse_mode: 'Markdown',
+              ...keyboard,
+            }
+          );
+        } catch (photoError) {
+          try {
+            teaserMessage = await this.bot.telegram.sendVideo(
+              postData.channelId,
+              postData.previewFileId,
+              {
+                caption,
+                parse_mode: 'Markdown',
+                ...keyboard,
+              }
+            );
+          } catch (videoError) {
+            teaserMessage = await this.bot.telegram.sendDocument(
+              postData.channelId,
+              postData.previewFileId,
+              {
+                caption,
+                parse_mode: 'Markdown',
+                ...keyboard,
+              }
+            );
+          }
         }
-      );
+      } else {
+        teaserMessage = await this.bot.telegram.sendMessage(
+          postData.channelId,
+          caption,
+          {
+            parse_mode: 'Markdown',
+            ...keyboard,
+          }
+        );
+      }
 
       // Save post to database
       await Post.create({
@@ -433,6 +520,7 @@ class TappBot {
         price: postData.price,
         currency: 'TON',
         teaserText: postData.teaserText || '',
+        previewFileId: postData.previewFileId,
         contentType: postData.contentType,
         contentData: postData.contentData || '',
         fileId: postData.fileId,

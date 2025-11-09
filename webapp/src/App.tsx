@@ -169,30 +169,30 @@ function App() {
     <div className="container">
       <div className="card">
         <div className="card-header">
-          <h1>Premium Content</h1>
+          <h1>⚡ Premium Content</h1>
           <div className="price-badge">
-            {postData.price} {postData.currency}
+            💎 {postData.price} {postData.currency}
           </div>
         </div>
 
         <div className="card-body">
           <div className="teaser">
-            <h3>Preview</h3>
+            <h3>📝 Preview</h3>
             <p>{postData.teaserText}</p>
           </div>
 
           <div className="content-info">
             <div className="info-item">
-              <span className="label">Content Type:</span>
-              <span className="value">{postData.contentType}</span>
+              <span className="label">📦 Content Type:</span>
+              <span className="value">{postData.contentType || 'N/A'}</span>
             </div>
             <div className="info-item">
-              <span className="label">Views:</span>
-              <span className="value">{postData.views}</span>
+              <span className="label">👁️ Views:</span>
+              <span className="value">{postData.views || 0}</span>
             </div>
             <div className="info-item">
-              <span className="label">Purchases:</span>
-              <span className="value">{postData.purchases}</span>
+              <span className="label">🛒 Purchases:</span>
+              <span className="value">{postData.purchases || 0}</span>
             </div>
           </div>
 

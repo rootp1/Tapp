@@ -8,6 +8,7 @@ export interface IPost extends Document {
   price: number;
   currency: string;
   teaserText: string;
+  previewFileId?: string; // Preview image/video/document for teaser
   contentType: 'text' | 'photo' | 'video' | 'document' | 'audio';
   contentData: string;
   fileId?: string;
@@ -53,6 +54,10 @@ const PostSchema: Schema = new Schema(
     teaserText: {
       type: String,
       required: true,
+    },
+    previewFileId: {
+      type: String,
+      required: false,
     },
     contentType: {
       type: String,
