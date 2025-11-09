@@ -107,7 +107,7 @@ function App() {
           {
             address: recipientAddress,
             amount: (amount * 1e9).toString(), // Convert to nanoTON
-            payload: transactionId, // Include transaction ID in payload
+            // Payload must be base64 encoded or omitted - using comment instead
           },
         ],
       };
