@@ -61,7 +61,8 @@ const PostSchema: Schema = new Schema(
     },
     contentData: {
       type: String,
-      required: true,
+      required: false,
+      default: '',
     },
     fileId: String,
     fileName: String,

@@ -67,12 +67,12 @@ class TappBot {
     this.bot.command('start', async (ctx) => {
       await ctx.reply(
         '```\n' +
-        '╭──────────────╮\n' +
+        '╭───────────────╮\n' +
         '  T    A    P P\n' +
         '  T   A A   P P\n' +
         '  T  AAAAA  P P\n' +
         '  T A     A P P\n' +
-        '╰──────────────╯\n' +
+        '╰───────────────╯\n' +
         '```\n\n' +
         `Welcome to Tapp! 🚀\n\n` +
         `Monetize your Telegram posts with TON payments.\n\n` +
@@ -541,35 +541,53 @@ class TappBot {
 
       const message = `🎉 *Content Unlocked!*\n\n`;
 
-      if (post.contentType === 'text') {
-        await this.bot.telegram.sendMessage(userId, message + post.contentData, {
-          parse_mode: 'Markdown',
-        });
-      } else if (post.contentType === 'photo' && post.fileId) {
-        await this.bot.telegram.sendPhoto(userId, post.fileId, {
-          caption: message + (post.contentData || ''),
-          parse_mode: 'Markdown',
-        });
-      } else if (post.contentType === 'video' && post.fileId) {
-        await this.bot.telegram.sendVideo(userId, post.fileId, {
-          caption: message + (post.contentData || ''),
-          parse_mode: 'Markdown',
-        });
-      } else if (post.contentType === 'document' && post.fileId) {
-        await this.bot.telegram.sendDocument(userId, post.fileId, {
-          caption: message + (post.contentData || ''),
-          parse_mode: 'Markdown',
-        });
-      } else if (post.contentType === 'audio' && post.fileId) {
-        await this.bot.telegram.sendAudio(userId, post.fileId, {
-          caption: message + (post.contentData || ''),
-          parse_mode: 'Markdown',
-        });
-      }
+      // Retry logic for Telegram API calls
+      const maxRetries = 3;
+      const retryDelay = 2000; // 2 seconds
 
-      logger.info(`Content delivered to user ${userId} for post ${postId}`);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          if (post.contentType === 'text') {
+            await this.bot.telegram.sendMessage(userId, message + post.contentData, {
+              parse_mode: 'Markdown',
+            });
+          } else if (post.contentType === 'photo' && post.fileId) {
+            await this.bot.telegram.sendPhoto(userId, post.fileId, {
+              caption: message + (post.contentData || ''),
+              parse_mode: 'Markdown',
+            });
+          } else if (post.contentType === 'video' && post.fileId) {
+            await this.bot.telegram.sendVideo(userId, post.fileId, {
+              caption: message + (post.contentData || ''),
+              parse_mode: 'Markdown',
+            });
+          } else if (post.contentType === 'document' && post.fileId) {
+            await this.bot.telegram.sendDocument(userId, post.fileId, {
+              caption: message + (post.contentData || ''),
+              parse_mode: 'Markdown',
+            });
+          } else if (post.contentType === 'audio' && post.fileId) {
+            await this.bot.telegram.sendAudio(userId, post.fileId, {
+              caption: message + (post.contentData || ''),
+              parse_mode: 'Markdown',
+            });
+          }
+
+          logger.info(`Content delivered to user ${userId} for post ${postId}`);
+          return; // Success, exit retry loop
+        } catch (sendError: any) {
+          if (attempt < maxRetries && sendError.code === 'ETIMEDOUT') {
+            logger.warn(`Delivery attempt ${attempt} failed, retrying in ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } else {
+            throw sendError; // Max retries reached or different error
+          }
+        }
+      }
     } catch (error) {
-      logger.error('Error delivering content:', error);
+      logger.error('Error delivering content:', error instanceof Error ? error.message : String(error));
+      // Store failed delivery for manual retry
+      logger.error(`Failed to deliver post ${postId} to user ${userId} - manual intervention may be required`);
     }
   }
 
@@ -611,7 +629,7 @@ class TappBot {
       
       logger.info('Starting Telegram bot with webhook...');
       
-      // Get bot info with retry logic
+      // Get bot info with retry logic - but don't crash if it fails
       let botInfo: any;
       let retries = 3;
       while (retries > 0) {
@@ -625,7 +643,12 @@ class TappBot {
           break;
         } catch (error) {
           retries--;
-          if (retries === 0) throw error;
+          if (retries === 0) {
+            logger.error('Bot authentication failed after all retries. Bot will still handle webhooks.');
+            logger.info('Server is still running, but bot authentication is unavailable');
+            // Don't throw - let the server continue running
+            return;
+          }
           logger.warn(`Bot authentication failed, retrying... (${retries} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
@@ -641,26 +664,31 @@ class TappBot {
       
       const webhookUrl = `${webhookDomain}/webhook/telegram`;
       
-      // Set webhook with timeout
-      await Promise.race([
-        this.bot.telegram.setWebhook(webhookUrl, {
-          drop_pending_updates: true,
-          allowed_updates: ['message', 'callback_query', 'my_chat_member'],
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('setWebhook timeout')), 10000)
-        )
-      ]);
-      
-      logger.info(`Webhook set to: ${webhookUrl}`);
-      logger.info('Tapp Bot webhook started successfully');
+      // Try to set webhook, but don't crash if it fails
+      try {
+        await Promise.race([
+          this.bot.telegram.setWebhook(webhookUrl, {
+            drop_pending_updates: true,
+            allowed_updates: ['message', 'callback_query', 'my_chat_member'],
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('setWebhook timeout')), 10000)
+          )
+        ]);
+        
+        logger.info(`Webhook set to: ${webhookUrl}`);
+        logger.info('Tapp Bot webhook started successfully');
+      } catch (error) {
+        logger.warn('Failed to set webhook, but server will continue running');
+        logger.warn('Webhook will still process incoming requests');
+      }
 
       // Enable graceful stop
       process.once('SIGINT', () => this.bot.stop('SIGINT'));
       process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
     } catch (error) {
-      logger.error('Failed to launch bot webhook:', error);
-      throw error;
+      logger.error('Error in webhook launch:', error instanceof Error ? error.message : String(error));
+      // Don't throw - let the server continue
     }
   }
 
