@@ -65,9 +65,15 @@ class TappBot {
   private setupCommands() {
     // Start command
     this.bot.command('start', async (ctx) => {
-      const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com/webapp';
-
       await ctx.reply(
+        '```\n' +
+        '╭──────────────╮\n' +
+        '  T    A    P P\n' +
+        '  T   A A   P P\n' +
+        '  T  AAAAA  P P\n' +
+        '  T A     A P P\n' +
+        '╰──────────────╯\n' +
+        '```\n\n' +
         `Welcome to Tapp! 🚀\n\n` +
         `Monetize your Telegram posts with TON payments.\n\n` +
         `🎨 *For Creators:*\n` +
