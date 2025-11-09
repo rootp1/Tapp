@@ -17,8 +17,12 @@ router.get('/:postId', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // Increment views
-    await Post.findOneAndUpdate({ postId }, { $inc: { views: 1 } });
+    // Increment views and get updated post
+    const updatedPost = await Post.findOneAndUpdate(
+      { postId }, 
+      { $inc: { views: 1 } },
+      { new: true } // Return the updated document
+    );
 
     // Check if user already purchased
     let hasPurchased = false;
@@ -28,14 +32,14 @@ router.get('/:postId', async (req: Request, res: Response) => {
     }
 
     res.json({
-      postId: post.postId,
-      price: post.price,
-      currency: post.currency,
-      teaserText: post.teaserText,
-      contentType: post.contentType,
+      postId: updatedPost!.postId,
+      price: updatedPost!.price,
+      currency: updatedPost!.currency,
+      teaserText: updatedPost!.teaserText,
+      contentType: updatedPost!.contentType,
       hasPurchased,
-      views: post.views,
-      purchases: post.purchases,
+      views: updatedPost!.views,
+      purchases: updatedPost!.purchases,
     });
   } catch (error) {
     logger.error('Error fetching post:', error);
