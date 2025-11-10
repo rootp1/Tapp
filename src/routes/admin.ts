@@ -7,7 +7,6 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
-// Middleware to check admin access
 const isAdmin = (req: Request, res: Response, next: Function) => {
   const adminIds = process.env.ADMIN_TELEGRAM_IDS?.split(',') || [];
   const userId = req.query.adminId as string;
@@ -19,7 +18,6 @@ const isAdmin = (req: Request, res: Response, next: Function) => {
   next();
 };
 
-// Get platform statistics
 router.get('/stats', isAdmin, async (req: Request, res: Response) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -61,7 +59,6 @@ router.get('/stats', isAdmin, async (req: Request, res: Response) => {
   }
 });
 
-// Get recent transactions
 router.get('/transactions', isAdmin, async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
@@ -77,7 +74,6 @@ router.get('/transactions', isAdmin, async (req: Request, res: Response) => {
   }
 });
 
-// Verify creator
 router.post('/verify-creator/:userId', isAdmin, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -99,7 +95,6 @@ router.post('/verify-creator/:userId', isAdmin, async (req: Request, res: Respon
   }
 });
 
-// Deactivate post
 router.post('/posts/:postId/deactivate', isAdmin, async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;

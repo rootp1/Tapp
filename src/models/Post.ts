@@ -8,7 +8,7 @@ export interface IPost extends Document {
   price: number;
   currency: string;
   teaserText: string;
-  previewFileId?: string; // Preview image/video/document for teaser
+  previewFileId?: string;
   contentType: 'text' | 'photo' | 'video' | 'document' | 'audio';
   contentData: string;
   fileId?: string;

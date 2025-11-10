@@ -8,7 +8,6 @@ import Post from '../models/Post';
 import { generateId } from '../utils/helpers';
 import { BOT_COMMANDS, MIN_POST_PRICE, MAX_POST_PRICE } from '../config/constants';
 
-// Session data interface
 interface SessionData {
   step?: string;
   postData?: {
@@ -24,7 +23,6 @@ interface SessionData {
   };
 }
 
-// Extended context with session
 interface BotContext extends Context {
   session?: SessionData;
 }
@@ -42,7 +40,7 @@ class TappBot {
   }
 
   private setupMiddleware() {
-    // Session middleware
+
     this.bot.use((ctx, next) => {
       const userId = ctx.from?.id.toString();
       if (userId) {
@@ -54,7 +52,6 @@ class TappBot {
       return next();
     });
 
-    // User registration middleware
     this.bot.use(async (ctx, next) => {
       if (ctx.from) {
         await this.ensureUser(ctx.from.id.toString(), ctx.from);
@@ -64,7 +61,7 @@ class TappBot {
   }
 
   private setupCommands() {
-    // Start command
+
     this.bot.command('start', async (ctx) => {
       await ctx.reply(
         '```\n' +
@@ -90,7 +87,6 @@ class TappBot {
       );
     });
 
-    // Help command
     this.bot.command('help', async (ctx) => {
       await ctx.reply(
         `*Available Commands:*\n\n` +
@@ -108,27 +104,22 @@ class TappBot {
       );
     });
 
-    // Create post command
     this.bot.command('createpost', async (ctx) => {
       await this.startPostCreation(ctx);
     });
 
-    // My channels command
     this.bot.command('mychannels', async (ctx) => {
       await this.showMyChannels(ctx);
     });
 
-    // Earnings command
     this.bot.command('earnings', async (ctx) => {
       await this.showEarnings(ctx);
     });
 
-    // Stats command
     this.bot.command('stats', async (ctx) => {
       await this.showStats(ctx);
     });
 
-    // Cancel command
     this.bot.command('cancel', async (ctx) => {
       const userId = ctx.from?.id.toString();
       if (userId) {
@@ -139,7 +130,7 @@ class TappBot {
   }
 
   private setupHandlers() {
-    // Handle callback queries (button clicks)
+
     this.bot.on('callback_query', async (ctx) => {
       if (!('data' in ctx.callbackQuery)) return;
       const data = ctx.callbackQuery.data;
@@ -163,7 +154,6 @@ class TappBot {
       await ctx.answerCbQuery();
     });
 
-    // Handle messages based on session state
     this.bot.on('message', async (ctx) => {
       const session = ctx.session;
       if (!session?.step) return;
@@ -184,7 +174,6 @@ class TappBot {
       }
     });
 
-    // Handle channel/group posts
     this.bot.on('my_chat_member', async (ctx) => {
       const chat = ctx.chat;
       const newStatus = ctx.myChatMember.new_chat_member.status;
@@ -195,7 +184,6 @@ class TappBot {
     });
   }
 
-  // Helper methods
   private async ensureUser(telegramId: string, userData: any) {
     try {
       let user = await User.findOne({ telegramId });
@@ -228,7 +216,6 @@ class TappBot {
         creatorId: userId,
       });
 
-      // Mark user as creator
       await User.findOneAndUpdate(
         { telegramId: userId },
         { isCreator: true }
@@ -342,7 +329,6 @@ class TappBot {
   private async handlePreviewInput(ctx: BotContext) {
     const message = ctx.message as any;
 
-    // Check if user wants to skip preview
     if (message.text === '/skip') {
       if (ctx.session) {
         ctx.session.step = 'awaiting_content';
@@ -448,13 +434,11 @@ class TappBot {
     }
 
     try {
-      // Create post in database
+
       const postId = generateId('post');
 
-      // Send teaser message to channel
-      // Use the bot's WebApp short name from BotFather
       const webAppUrl = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}/myapp?startapp=${postId}`;
-      
+
       logger.info(`Creating post with unlock URL: ${webAppUrl}`);
 
       const caption = `🔒 *Premium Content*\n\n${postData.teaserText}\n\n💎 Price: ${postData.price} TON`;
@@ -464,9 +448,8 @@ class TappBot {
 
       let teaserMessage;
 
-      // Send preview media if available, otherwise just text
       if (postData.previewFileId) {
-        // Determine media type from the first part of file_id or try each method
+
         try {
           teaserMessage = await this.bot.telegram.sendPhoto(
             postData.channelId,
@@ -511,7 +494,6 @@ class TappBot {
         );
       }
 
-      // Save post to database
       await Post.create({
         postId,
         channelId: postData.channelId,
@@ -527,7 +509,6 @@ class TappBot {
         fileName: postData.fileName,
       });
 
-      // Update channel stats
       await Channel.findOneAndUpdate(
         { channelId: postData.channelId },
         { $inc: { totalPosts: 1 } }
@@ -538,7 +519,6 @@ class TappBot {
         `Your premium post is now live in ${postData.channelTitle}.`
       );
 
-      // Clear session
       if (userId) {
         sessions.delete(userId);
       }
@@ -554,7 +534,6 @@ class TappBot {
     const userId = ctx.from?.id.toString();
     if (!userId) return;
 
-    // This will be handled by the web app
     await ctx.answerCbQuery('Opening payment interface...');
   }
 
@@ -629,9 +608,8 @@ class TappBot {
 
       const message = `🎉 *Content Unlocked!*\n\n`;
 
-      // Retry logic for Telegram API calls
       const maxRetries = 3;
-      const retryDelay = 2000; // 2 seconds
+      const retryDelay = 2000;
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -662,19 +640,19 @@ class TappBot {
           }
 
           logger.info(`Content delivered to user ${userId} for post ${postId}`);
-          return; // Success, exit retry loop
+          return;
         } catch (sendError: any) {
           if (attempt < maxRetries && sendError.code === 'ETIMEDOUT') {
             logger.warn(`Delivery attempt ${attempt} failed, retrying in ${retryDelay}ms...`);
             await new Promise(resolve => setTimeout(resolve, retryDelay));
           } else {
-            throw sendError; // Max retries reached or different error
+            throw sendError;
           }
         }
       }
     } catch (error) {
       logger.error('Error delivering content:', error instanceof Error ? error.message : String(error));
-      // Store failed delivery for manual retry
+
       logger.error(`Failed to deliver post ${postId} to user ${userId} - manual intervention may be required`);
     }
   }
@@ -682,14 +660,12 @@ class TappBot {
   async launch() {
     try {
       await connectDatabase();
-      
+
       logger.info('Starting Telegram bot...');
-      
-      // Try to get bot info first as a connectivity test
+
       const botInfo = await this.bot.telegram.getMe();
       logger.info(`Bot authenticated as: @${botInfo.username}`);
-      
-      // Launch bot in background - don't await to prevent blocking
+
       this.bot.launch({
         dropPendingUpdates: true,
         allowedUpdates: ['message', 'callback_query', 'my_chat_member'],
@@ -698,11 +674,9 @@ class TappBot {
       }).catch((error) => {
         logger.error('Bot polling error:', error);
       });
-      
-      // Don't wait for launch to complete
+
       logger.info('Bot launch initiated in background');
 
-      // Enable graceful stop
       process.once('SIGINT', () => this.bot.stop('SIGINT'));
       process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
     } catch (error) {
@@ -714,17 +688,16 @@ class TappBot {
   async launchWebhook() {
     try {
       await connectDatabase();
-      
+
       logger.info('Starting Telegram bot with webhook...');
-      
-      // Get bot info with retry logic - but don't crash if it fails
+
       let botInfo: any;
       let retries = 3;
       while (retries > 0) {
         try {
           botInfo = await Promise.race([
             this.bot.telegram.getMe(),
-            new Promise((_, reject) => 
+            new Promise((_, reject) =>
               setTimeout(() => reject(new Error('getMe timeout')), 10000)
             )
           ]);
@@ -734,36 +707,34 @@ class TappBot {
           if (retries === 0) {
             logger.error('Bot authentication failed after all retries. Bot will still handle webhooks.');
             logger.info('Server is still running, but bot authentication is unavailable');
-            // Don't throw - let the server continue running
+
             return;
           }
           logger.warn(`Bot authentication failed, retrying... (${retries} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
-      
+
       logger.info(`Bot authenticated as: @${botInfo.username}`);
-      
-      // Get webhook URL from environment
+
       const webhookDomain = process.env.WEBHOOK_DOMAIN || process.env.WEBAPP_URL?.replace('/webapp', '');
       if (!webhookDomain) {
         throw new Error('WEBHOOK_DOMAIN or WEBAPP_URL is required for webhook mode');
       }
-      
+
       const webhookUrl = `${webhookDomain}/webhook/telegram`;
-      
-      // Try to set webhook, but don't crash if it fails
+
       try {
         await Promise.race([
           this.bot.telegram.setWebhook(webhookUrl, {
             drop_pending_updates: true,
             allowed_updates: ['message', 'callback_query', 'my_chat_member'],
           }),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('setWebhook timeout')), 10000)
           )
         ]);
-        
+
         logger.info(`Webhook set to: ${webhookUrl}`);
         logger.info('Tapp Bot webhook started successfully');
       } catch (error) {
@@ -771,12 +742,11 @@ class TappBot {
         logger.warn('Webhook will still process incoming requests');
       }
 
-      // Enable graceful stop
       process.once('SIGINT', () => this.bot.stop('SIGINT'));
       process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
     } catch (error) {
       logger.error('Error in webhook launch:', error instanceof Error ? error.message : String(error));
-      // Don't throw - let the server continue
+
     }
   }
 
@@ -789,7 +759,6 @@ class TappBot {
   }
 }
 
-// Initialize and export
 const token = process.env.TELEGRAM_BOT_TOKEN || '';
 if (!token) {
   throw new Error('TELEGRAM_BOT_TOKEN is required');
@@ -797,7 +766,6 @@ if (!token) {
 
 export const tappBot = new TappBot(token);
 
-// Run bot if this file is executed directly
 if (require.main === module) {
   tappBot.launch();
 }

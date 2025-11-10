@@ -5,7 +5,6 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
-// Get post details
 router.get('/:postId', async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
@@ -17,14 +16,12 @@ router.get('/:postId', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // Increment views and get updated post
     const updatedPost = await Post.findOneAndUpdate(
-      { postId }, 
+      { postId },
       { $inc: { views: 1 } },
-      { new: true } // Return the updated document
+      { new: true }
     );
 
-    // Check if user already purchased
     let hasPurchased = false;
     if (userId) {
       const purchase = await Purchase.findOne({ userId, postId });
@@ -47,7 +44,6 @@ router.get('/:postId', async (req: Request, res: Response) => {
   }
 });
 
-// Get user's purchased posts
 router.get('/user/:userId/purchases', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;

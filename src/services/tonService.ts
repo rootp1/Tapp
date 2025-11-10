@@ -21,9 +21,6 @@ class TonService {
     this.apiKey = process.env.TON_API_KEY || '';
   }
 
-  /**
-   * Verify a TON transaction
-   */
   async verifyTransaction(
     hash: string,
     expectedAmount: number,
@@ -37,13 +34,11 @@ class TonService {
         return false;
       }
 
-      // Verify recipient
       if (transaction.to.toLowerCase() !== recipientAddress.toLowerCase()) {
         logger.warn(`Transaction recipient mismatch. Expected: ${recipientAddress}, Got: ${transaction.to}`);
         return false;
       }
 
-      // Verify amount (convert from nanoTON to TON)
       const actualAmount = parseInt(transaction.value) / 1e9;
       if (actualAmount < expectedAmount) {
         logger.warn(`Transaction amount mismatch. Expected: ${expectedAmount}, Got: ${actualAmount}`);
@@ -58,9 +53,6 @@ class TonService {
     }
   }
 
-  /**
-   * Get transaction details from TON network
-   */
   private async getTransaction(hash: string): Promise<TonTransaction | null> {
     try {
       const response = await axios.get(`${this.apiEndpoint}/getTransactions`, {
@@ -88,9 +80,6 @@ class TonService {
     }
   }
 
-  /**
-   * Validate TON address
-   */
   isValidAddress(address: string): boolean {
     try {
       Address.parse(address);
@@ -100,16 +89,10 @@ class TonService {
     }
   }
 
-  /**
-   * Convert TON to nanoTON
-   */
   toNano(amount: number): string {
     return (amount * 1e9).toString();
   }
 
-  /**
-   * Convert nanoTON to TON
-   */
   fromNano(nanoAmount: string): number {
     return parseInt(nanoAmount) / 1e9;
   }

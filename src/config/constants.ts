@@ -1,9 +1,9 @@
 export const PLATFORM_FEE_PERCENT = Number(process.env.PLATFORM_FEE_PERCENT) || 5;
 
-export const TON_DECIMAL = 9; // TON has 9 decimal places
+export const TON_DECIMAL = 9;
 
-export const MIN_POST_PRICE = 0.1; // Minimum 0.1 TON
-export const MAX_POST_PRICE = 1000; // Maximum 1000 TON
+export const MIN_POST_PRICE = 0.1;
+export const MAX_POST_PRICE = 1000;
 
 export const CONTENT_TYPES = {
   TEXT: 'text',

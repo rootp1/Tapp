@@ -25,13 +25,12 @@ function App() {
   const userFriendlyAddress = useTonAddress();
 
   const tg = window.Telegram?.WebApp;
-  
-  // Get postId from URL query params or Telegram WebApp start parameter
+
   const urlParams = new URLSearchParams(window.location.search);
   const postId = urlParams.get('postId') || tg?.initDataUnsafe?.start_param || null;
 
   useEffect(() => {
-    // Initialize Telegram Mini App
+
     try {
       tg?.ready();
       tg?.expand();
@@ -40,7 +39,6 @@ function App() {
       console.error('Failed to initialize Telegram Mini App:', e);
     }
 
-    // Load post data
     if (postId) {
       loadPostData();
     } else {
@@ -61,7 +59,6 @@ function App() {
       setPostData(response.data);
       setLoading(false);
 
-      // If already purchased, notify and close
       if (response.data.hasPurchased) {
         tg?.showAlert('You have already purchased this content!');
         setTimeout(() => tg?.close(), 2000);
@@ -91,7 +88,6 @@ function App() {
         throw new Error('User ID not found');
       }
 
-      // Create payment transaction
       const createResponse = await axios.post(`${API_BASE_URL}/payments/create`, {
         postId,
         userId,
@@ -100,28 +96,24 @@ function App() {
 
       const { transactionId, amount, recipientAddress } = createResponse.data;
 
-      // Prepare TON transaction
       const transaction = {
-        validUntil: Math.floor(Date.now() / 1000) + 300, // 5 minutes
+        validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [
           {
             address: recipientAddress,
-            amount: (amount * 1e9).toString(), // Convert to nanoTON
-            // Payload must be base64 encoded or omitted - using comment instead
+            amount: (amount * 1e9).toString(),
+
           },
         ],
       };
 
-      // Send transaction via TON Connect
       const result = await tonConnectUI.sendTransaction(transaction);
 
-      // Wait a bit for transaction to be confirmed
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      // Verify payment with backend
       const verifyResponse = await axios.post(`${API_BASE_URL}/payments/verify`, {
         transactionId,
-        tonTransactionHash: result.boc, // Transaction hash
+        tonTransactionHash: result.boc,
       });
 
       if (verifyResponse.data.success) {

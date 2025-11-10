@@ -35,7 +35,6 @@ const PurchaseSchema: Schema = new Schema(
   }
 );
 
-// Compound index to prevent duplicate purchases
 PurchaseSchema.index({ userId: 1, postId: 1 }, { unique: true });
 
 export default mongoose.model<IPurchase>('Purchase', PurchaseSchema);
