@@ -2,6 +2,7 @@ services:
   # Backend API
   - type: web
     name: tapp-backend
+    runtime: node
     env: node
     region: singapore
     plan: free
