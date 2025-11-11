@@ -92,17 +92,19 @@ function App() {
         postId,
         userId,
         walletAddress: userFriendlyAddress,
+        creatorAddress: userFriendlyAddress, // In production, this should be the actual creator's address
       });
 
-      const { transactionId, amount, recipientAddress } = createResponse.data;
+      const { transactionId, amount, recipientAddress, messageBody } = createResponse.data;
 
+      // Build transaction with smart contract message
       const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [
           {
-            address: recipientAddress,
-            amount: (amount * 1e9).toString(),
-
+            address: recipientAddress, // Smart contract address
+            amount: (amount * 1e9).toString(), // Convert TON to nanoTON
+            payload: messageBody, // Include the ProcessPayment message
           },
         ],
       };

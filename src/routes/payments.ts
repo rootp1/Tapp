@@ -5,6 +5,7 @@ import Purchase from '../models/Purchase';
 import User from '../models/User';
 import Channel from '../models/Channel';
 import tonService from '../services/tonService';
+import paymentContractService from '../services/paymentContractService';
 import { tappBot } from '../bot/index';
 import { generateId, calculateFees } from '../utils/helpers';
 import { PLATFORM_FEE_PERCENT, TRANSACTION_STATUS } from '../config/constants';
@@ -14,7 +15,7 @@ const router = Router();
 
 router.post('/create', async (req: Request, res: Response) => {
   try {
-    const { postId, userId, walletAddress } = req.body;
+    const { postId, userId, walletAddress, creatorAddress } = req.body;
 
     if (!postId || !userId) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -30,12 +31,22 @@ router.post('/create', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
+    // Get creator's TON wallet address
+    const creator = await User.findOne({ telegramId: post.creatorId });
+    const creatorTonAddress = creatorAddress || creator?.walletAddress;
+
+    if (!creatorTonAddress) {
+      return res.status(400).json({ error: 'Creator wallet address not found' });
+    }
+
     const { platformFee, creatorEarnings } = calculateFees(
       post.price,
       PLATFORM_FEE_PERCENT
     );
 
     const transactionId = generateId('tx');
+    const queryId = BigInt(Date.now());
+
     const transaction = await Transaction.create({
       transactionId,
       postId,
@@ -49,11 +60,23 @@ router.post('/create', async (req: Request, res: Response) => {
       walletAddress,
     });
 
+    // Get smart contract address
+    const contractAddress = paymentContractService.getContractAddress();
+
+    // Build the ProcessPayment message
+    const messageBody = paymentContractService.buildProcessPaymentMessage(
+      queryId,
+      BigInt(postId),
+      creatorTonAddress
+    );
+
     res.json({
       transactionId,
       amount: post.price,
       currency: 'TON',
-      recipientAddress: process.env.PLATFORM_WALLET_ADDRESS,
+      recipientAddress: contractAddress,
+      messageBody, // Include the message body for the transaction
+      queryId: queryId.toString(),
     });
   } catch (error) {
     logger.error('Error creating payment:', error);
@@ -80,10 +103,18 @@ router.post('/verify', async (req: Request, res: Response) => {
 
     logger.info(`Processing payment verification for transaction: ${transactionId}, hash: ${tonTransactionHash}`);
 
-    const isValid = true;
+    // Get creator's wallet address for verification
+    const creator = await User.findOne({ telegramId: transaction.creatorId });
+    const creatorAddress = creator?.walletAddress || '';
+
+    // Verify the transaction through the smart contract
+    const isValid = await paymentContractService.verifyPaymentTransaction(
+      tonTransactionHash,
+      transaction.amount,
+      creatorAddress
+    );
 
     if (!isValid) {
-
       await Transaction.findOneAndUpdate(
         { transactionId },
         {
@@ -165,6 +196,31 @@ router.get('/:transactionId/status', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error fetching transaction status:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get smart contract statistics
+router.get('/contract/stats', async (req: Request, res: Response) => {
+  try {
+    const stats = await paymentContractService.getContractStats();
+    res.json(stats);
+  } catch (error) {
+    logger.error('Error fetching contract stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Check if contract is ready
+router.get('/contract/health', async (req: Request, res: Response) => {
+  try {
+    const isReady = await paymentContractService.isContractReady();
+    res.json({
+      ready: isReady,
+      address: isReady ? paymentContractService.getContractAddress() : null,
+    });
+  } catch (error) {
+    logger.error('Error checking contract health:', error);
+    res.status(500).json({ error: 'Internal server error', ready: false });
   }
 });
 
