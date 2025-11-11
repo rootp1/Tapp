@@ -43,7 +43,7 @@
     "@ton-community/func-js": "^0.11.0",
     "@ton-community/func-js-bin": "^0.4.6-wasmfix.debugger.1",
     "@ton/blueprint": "^0.41.0",
-    "@ton/sandbox": "^0.39.0",
+    "@ton/sandbox": "^0.37.1",
     "@ton/test-utils": "^0.12.0",
     "@ton/tolk-js": "^1.1.0",
     "@types/bcryptjs": "^2.4.6",
