@@ -7,7 +7,7 @@ import Channel from '../models/Channel';
 import tonService from '../services/tonService';
 import paymentContractService from '../services/paymentContractService';
 import { tappBot } from '../bot/index';
-import { generateId, calculateFees } from '../utils/helpers';
+import { generateId, calculateFees, postIdToUint64 } from '../utils/helpers';
 import { PLATFORM_FEE_PERCENT, TRANSACTION_STATUS } from '../config/constants';
 import { logger } from '../utils/logger';
 
@@ -63,10 +63,13 @@ router.post('/create', async (req: Request, res: Response) => {
     // Get smart contract address
     const contractAddress = paymentContractService.getContractAddress();
 
+    // Convert postId string to uint64 for smart contract
+    const postIdHash = postIdToUint64(postId);
+
     // Build the ProcessPayment message
     const messageBody = paymentContractService.buildProcessPaymentMessage(
       queryId,
-      BigInt(postId),
+      postIdHash,
       creatorTonAddress
     );
 
@@ -101,7 +104,7 @@ router.post('/verify', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Transaction already completed' });
     }
 
-    logger.info(`Processing payment verification for transaction: ${transactionId}, hash: ${tonTransactionHash}`);
+    logger.info(`Processing payment verification for transaction: ${transactionId}, hash: ${tonTransactionHash.substring(0, 50)}...`);
 
     // Get creator's wallet address for verification
     const creator = await User.findOne({ telegramId: transaction.creatorId });
@@ -126,6 +129,7 @@ router.post('/verify', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid transaction' });
     }
 
+    // Mark transaction as completed
     transaction.status = TRANSACTION_STATUS.COMPLETED;
     transaction.tonTransactionHash = tonTransactionHash;
     await transaction.save();

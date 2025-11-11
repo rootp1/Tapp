@@ -27,6 +27,17 @@ export const isValidTelegramId = (id: string): boolean => {
   return /^-?\d+$/.test(id);
 };
 
+/**
+ * Convert a string postId to a numeric hash for smart contract
+ * Uses the first 8 bytes of SHA256 hash as a uint64
+ */
+export const postIdToUint64 = (postId: string): bigint => {
+  const hash = crypto.createHash('sha256').update(postId).digest();
+  // Take first 8 bytes and convert to BigInt
+  const uint64 = hash.readBigUInt64BE(0);
+  return uint64;
+};
+
 export const truncateText = (text: string, maxLength: number = 100): string => {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
