@@ -2,56 +2,28 @@ version: '3.8'
 
 services:
   mongodb:
-    image: mongo:6
+    image: mongo:7
     container_name: tapp-mongodb
-    restart: always
     ports:
       - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
     environment:
       MONGO_INITDB_DATABASE: tapp
-    volumes:
-      - mongodb-data:/data/db
-    networks:
-      - tapp-network
 
   backend:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: tapp-backend
-    restart: always
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: production
-      MONGODB_URI: mongodb://mongodb:27017/tapp
-      PORT: 3000
-    env_file:
-      - .env
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/tapp
+    volumes:
+      - ./backend:/app/backend
+      - /app/backend/node_modules
     depends_on:
       - mongodb
-    volumes:
-      - ./logs:/app/logs
-      - ./uploads:/app/uploads
-    networks:
-      - tapp-network
-
-  webapp:
-    build:
-      context: ./webapp
-      dockerfile: Dockerfile
-    container_name: tapp-webapp
-    restart: always
-    ports:
-      - "5173:80"
-    environment:
-      VITE_API_URL: http://localhost:3000/api
-    depends_on:
-      - backend
-    networks:
-      - tapp-network
-
-volumes:
-  mongodb-data:
-
-networks:
-  tapp-network:
-    driver: bridge
+    command: npm run dev
