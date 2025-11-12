@@ -33,6 +33,14 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/ping', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'pong', 
+    timestamp: new Date().toISOString(),
+    message: 'Server is awake and ready!' 
+  });
+});
+
 app.get('/', (req: Request, res: Response) => {
   res.json({
     name: 'Tapp API',

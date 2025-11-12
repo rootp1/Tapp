@@ -28,6 +28,7 @@ export const BOT_COMMANDS = {
   EARNINGS: '/earnings',
   STATS: '/stats',
   CANCEL: '/cancel',
+  STATUS: '/status',
 } as const;
 
 export const CALLBACK_ACTIONS = {

@@ -129,6 +129,7 @@ class TappBot {
         `${BOT_COMMANDS.MY_CHANNELS} - View your channels\n` +
         `${BOT_COMMANDS.EARNINGS} - Check your earnings\n` +
         `${BOT_COMMANDS.STATS} - View post statistics\n` +
+        `${BOT_COMMANDS.STATUS} - Check backend server status\n` +
         `/setwallet - Set your TON wallet address\n` +
         `${BOT_COMMANDS.CANCEL} - Cancel current operation\n\n` +
         `*How to create a post:*\n` +
@@ -163,6 +164,10 @@ class TappBot {
         sessions.delete(userId);
       }
       await ctx.reply('Operation cancelled.');
+    });
+
+    this.bot.command('status', async (ctx) => {
+      await this.checkBackendStatus(ctx);
     });
   }
 
@@ -731,6 +736,50 @@ class TappBot {
       `💰 Total Earnings: ${totalEarnings.toFixed(2)} TON`,
       { parse_mode: 'Markdown' }
     );
+  }
+
+  private async checkBackendStatus(ctx: BotContext) {
+    try {
+      await ctx.reply('🔍 Checking backend status...');
+      
+      const startTime = Date.now();
+      const response = await fetch(`${process.env.WEBHOOK_DOMAIN || 'http://localhost:3000'}/health`, {
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+      const responseTime = Date.now() - startTime;
+      
+      if (response.ok) {
+        const data = await response.json() as { status: string; timestamp: string };
+        const statusEmoji = responseTime < 1000 ? '🟢' : responseTime < 3000 ? '🟡' : '🟠';
+        
+        await ctx.reply(
+          `${statusEmoji} *Backend Status: Online*\n\n` +
+          `⏱ Response Time: ${responseTime}ms\n` +
+          `🕐 Server Time: ${new Date(data.timestamp).toLocaleString()}\n\n` +
+          `${responseTime > 3000 ? '⚠️ Server was sleeping but is now awake!' : '✅ All systems operational'}`,
+          { parse_mode: 'Markdown' }
+        );
+      } else {
+        await ctx.reply(
+          `🔴 *Backend Status: Error*\n\n` +
+          `HTTP Status: ${response.status}\n\n` +
+          `The backend is experiencing issues. Please try again later or contact support.`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+    } catch (error) {
+      logger.error('Backend status check failed:', error);
+      await ctx.reply(
+        `🔴 *Backend Status: Offline*\n\n` +
+        `⚠️ Unable to connect to backend server.\n\n` +
+        `This might be because:\n` +
+        `• Server is sleeping on Render (free tier)\n` +
+        `• Network connectivity issue\n` +
+        `• Server is starting up\n\n` +
+        `💡 Try again in a few seconds or use the webapp to wake it up.`,
+        { parse_mode: 'Markdown' }
+      );
+    }
   }
 
   async notifyCreatorPayment(
