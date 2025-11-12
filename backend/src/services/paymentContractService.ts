@@ -119,15 +119,17 @@ class PaymentContractService {
       }
 
       // Get recent transactions for the contract
-      const transactions = await this.client.getTransactions(this.contractAddress, { limit: 20 });
+      const transactions = await this.client.getTransactions(this.contractAddress, { limit: 50 });
+
+      logger.info(`Checking ${transactions.length} recent transactions for amount ${expectedAmount} TON`);
 
       // The txBocOrHash could be either a BOC or a hash
       // For simplicity, we'll verify by checking recent transactions for matching amount
       // In production, you'd want more robust verification
       
       let isValid = false;
-      const expectedMin = expectedAmount * 0.95; // 5% tolerance for fees
-      const expectedMax = expectedAmount * 1.05;
+      const expectedMin = expectedAmount * 0.90; // 10% tolerance for fees
+      const expectedMax = expectedAmount * 1.10;
 
       for (const tx of transactions) {
         const inMessage = tx.inMessage;
@@ -137,27 +139,32 @@ class PaymentContractService {
 
         const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
         
+        // Log each transaction for debugging
+        const txTime = tx.now;
+        const currentTime = Math.floor(Date.now() / 1000);
+        const timeDiff = currentTime - txTime;
+        
+        logger.info(`TX: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago, hash=${tx.hash().toString('hex').substring(0, 16)}...`);
+        
         // Check if this transaction matches our expected amount and is recent
         if (receivedAmount >= expectedMin && receivedAmount <= expectedMax) {
-          // Additional validation: check if transaction is recent (within last 5 minutes)
-          const txTime = tx.now;
-          const currentTime = Math.floor(Date.now() / 1000);
-          const timeDiff = currentTime - txTime;
-          
-          if (timeDiff < 300) { // 5 minutes
-            logger.info(`Found matching transaction: amount=${receivedAmount} TON, time=${timeDiff}s ago`);
+          // Additional validation: check if transaction is recent (within last 10 minutes)
+          if (timeDiff < 600) { // 10 minutes
+            logger.info(`✅ Found matching transaction: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
             isValid = true;
             break;
+          } else {
+            logger.warn(`Transaction matches amount but is too old: ${timeDiff}s ago`);
           }
         }
       }
 
       if (!isValid) {
-        logger.warn(`Transaction verification failed. Expected amount: ${expectedAmount} TON`);
+        logger.warn(`❌ Transaction verification failed. Expected amount: ${expectedAmount} TON (tolerance: ${expectedMin.toFixed(4)} - ${expectedMax.toFixed(4)} TON)`);
         return false;
       }
 
-      logger.info(`Transaction verified successfully`);
+      logger.info(`✅ Transaction verified successfully`);
       return true;
     } catch (error) {
       logger.error('Error verifying transaction:', error);
