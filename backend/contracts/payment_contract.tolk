@@ -43,9 +43,10 @@ fun onInternalMessage(in: InMessage) {
             // Load storage
             var storage = lazy Storage.load();
 
-            // Get contract balance to calculate available funds
+            // Get contract balance AFTER receiving the payment
+            // The balance already includes the incoming value
             val contractBalance = getBalance();
-            val gasReserve = 100000000;  // 0.1 TON reserved for gas and storage
+            val gasReserve = 50000000;  // 0.05 TON reserved for gas and storage fees
 
             // Ensure we have enough balance
             assert(contractBalance > gasReserve) throw 100;
@@ -65,7 +66,7 @@ fun onInternalMessage(in: InMessage) {
                 .storeCoins(creatorEarnings)
                 .storeUint(0, 107)                 // empty payload
                 .endCell(),
-                1  // send mode: pay fees separately
+                3  // send mode: ignore errors, pay fees from message value
             );
 
             // Send platform fee to platform address
@@ -75,7 +76,7 @@ fun onInternalMessage(in: InMessage) {
                 .storeCoins(platformFee)
                 .storeUint(0, 107)                     // empty payload
                 .endCell(),
-                1  // send mode: pay fees separately
+                3  // send mode: ignore errors, pay fees from message value
             );
 
             // Update statistics
