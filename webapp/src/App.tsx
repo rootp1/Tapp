@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { TonConnectButton, useTonConnectUI, useTonAddress } from '@tonconnect/ui-react';
 import axios from 'axios';
 import './App.css';
+import { BackendStatus } from './components/BackendStatus';
 
 interface PostData {
   postId: string;
@@ -174,6 +175,7 @@ function App() {
 
   return (
     <div className="container">
+      <BackendStatus apiUrl={API_BASE_URL} />
       <div className="card">
         <div className="card-header">
           <h1>⚡ Premium Content</h1>

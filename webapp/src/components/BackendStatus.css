@@ -1,0 +1,226 @@
+.backend-status-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.status-toggle-btn {
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.status-toggle-btn:hover {
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.status-emoji {
+  font-size: 24px;
+}
+
+.status-panel {
+  position: absolute;
+  top: 60px;
+  right: 0;
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  min-width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.status-body {
+  padding: 20px;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.status-indicator {
+  font-size: 24px;
+}
+
+.status-text {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.offline-message,
+.waking-message,
+.slow-message {
+  text-align: center;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.offline-message p,
+.waking-message p,
+.slow-message p {
+  margin: 8px 0;
+  color: #fff;
+  font-size: 13px;
+}
+
+.wake-up-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 10px 0;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.wake-up-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.wake-up-btn:active {
+  transform: translateY(0);
+}
+
+.wake-up-info {
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-style: italic;
+}
+
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border-top: 3px solid #667eea;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 15px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.refresh-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Telegram Mini App dark theme compatibility */
+@media (prefers-color-scheme: dark) {
+  .status-panel {
+    background: rgba(0, 0, 0, 0.98);
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .backend-status-container {
+    top: 10px;
+    right: 10px;
+  }
+
+  .status-toggle-btn {
+    width: 45px;
+    height: 45px;
+  }
+
+  .status-emoji {
+    font-size: 20px;
+  }
+
+  .status-panel {
+    min-width: 280px;
+    max-width: calc(100vw - 40px);
+  }
+}
