@@ -118,137 +118,76 @@ class PaymentContractService {
         throw new Error('Contract not initialized');
       }
 
-      // Step 1: Decode the BOC to get the transaction hash
-      let txCell: Cell;
-      let txHash: string;
-      
-      try {
-        // BOC is base64 encoded
-        const bocBuffer = Buffer.from(txBoc, 'base64');
-        txCell = Cell.fromBoc(bocBuffer)[0];
-        txHash = txCell.hash().toString('hex');
-        logger.info(`Decoded transaction hash: ${txHash}`);
-      } catch (bocError) {
-        logger.error('Failed to decode BOC:', bocError);
-        // Fallback: treat as hash string if BOC decode fails
-        txHash = txBoc;
-        logger.info(`Treating as hash string: ${txHash}`);
-      }
+      logger.info(`Verifying payment: amount=${expectedAmount} TON, creator=${creatorAddress.substring(0, 10)}...`);
 
-      // Step 2: Get recent transactions from the contract
+      // Get recent transactions from the contract
       const transactions = await this.client.getTransactions(this.contractAddress, { limit: 50 });
-      logger.info(`Checking ${transactions.length} recent transactions for hash: ${txHash.substring(0, 16)}...`);
+      logger.info(`Checking ${transactions.length} recent transactions on contract ${this.contractAddress.toString()}`);
 
-      // Step 3: Find the specific transaction by hash
-      let foundTx = null;
-      for (const tx of transactions) {
-        const currentTxHash = tx.hash().toString('hex');
-        
-        if (currentTxHash === txHash) {
-          foundTx = tx;
-          logger.info(`✅ Found transaction by hash!`);
-          break;
-        }
-      }
-
-      // If not found by hash, try amount-based matching as fallback (for debugging)
-      if (!foundTx) {
-        logger.warn(`Transaction hash not found. Attempting fallback verification by amount...`);
-        
-        const expectedMin = expectedAmount * 0.90;
-        const expectedMax = expectedAmount * 1.10;
-        const currentTime = Math.floor(Date.now() / 1000);
-
-        for (const tx of transactions) {
-          const inMessage = tx.inMessage;
-          if (!inMessage || inMessage.info.type !== 'internal') {
-            continue;
-          }
-
-          const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
-          const txTime = tx.now;
-          const timeDiff = currentTime - txTime;
-          
-          logger.info(`TX: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago, hash=${tx.hash().toString('hex').substring(0, 16)}...`);
-          
-          if (receivedAmount >= expectedMin && receivedAmount <= expectedMax && timeDiff < 600) {
-            foundTx = tx;
-            logger.info(`⚠️ Found matching transaction by amount (fallback): ${receivedAmount.toFixed(4)} TON`);
-            break;
-          }
-        }
-      }
-
-      if (!foundTx) {
-        logger.warn(`❌ Transaction not found. Hash: ${txHash.substring(0, 16)}..., Expected: ${expectedAmount} TON`);
-        return false;
-      }
-
-      // Step 4: Verify the transaction details
-      const inMessage = foundTx.inMessage;
-      if (!inMessage || inMessage.info.type !== 'internal') {
-        logger.warn(`❌ Invalid transaction type`);
-        return false;
-      }
-
-      // Verify amount
-      const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
+      // Since result.boc is the external message, not the actual transaction hash,
+      // we'll verify by amount and message body content
       const expectedMin = expectedAmount * 0.90;
       const expectedMax = expectedAmount * 1.10;
-      
-      if (receivedAmount < expectedMin || receivedAmount > expectedMax) {
-        logger.warn(`❌ Amount mismatch: received ${receivedAmount} TON, expected ${expectedAmount} TON`);
-        return false;
-      }
+      const currentTime = Math.floor(Date.now() / 1000);
 
-      // Step 5: Verify message body contains ProcessPayment opcode
-      if (inMessage.body) {
-        try {
-          const bodySlice = inMessage.body.beginParse();
-          const opcode = bodySlice.loadUint(32);
+      for (const tx of transactions) {
+        const inMessage = tx.inMessage;
+        if (!inMessage || inMessage.info.type !== 'internal') {
+          continue;
+        }
+
+        const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
+        const txTime = tx.now;
+        const timeDiff = currentTime - txTime;
+        const txHash = tx.hash().toString('hex');
+        
+        logger.info(`TX: hash=${txHash.substring(0, 16)}..., amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
+        
+        // Check amount and timing
+        if (receivedAmount >= expectedMin && receivedAmount <= expectedMax && timeDiff < 600) {
           
-          // ProcessPayment opcode is 0x7e8764ef
-          if (opcode === 0x7e8764ef) {
-            logger.info(`✅ ProcessPayment message verified (opcode: 0x${opcode.toString(16)})`);
-            
-            // Additionally verify the creator address in the message
+          // Verify message body contains ProcessPayment opcode and creator address
+          if (inMessage.body) {
             try {
-              const queryId = bodySlice.loadUintBig(64);
-              const postId = bodySlice.loadUintBig(64);
-              const messageCreatorAddress = bodySlice.loadAddress();
+              const bodySlice = inMessage.body.beginParse();
+              const opcode = bodySlice.loadUint(32);
               
-              const expectedCreatorAddr = Address.parse(creatorAddress);
-              
-              if (messageCreatorAddress.equals(expectedCreatorAddr)) {
-                logger.info(`✅ Creator address verified in message`);
-              } else {
-                logger.warn(`⚠️ Creator address mismatch in message: ${messageCreatorAddress.toString()} vs ${expectedCreatorAddr.toString()}`);
+              // ProcessPayment opcode is 0x7e8764ef
+              if (opcode === 0x7e8764ef) {
+                logger.info(`Found ProcessPayment message (opcode: 0x${opcode.toString(16)})`);
+                
+                try {
+                  const queryId = bodySlice.loadUintBig(64);
+                  const postId = bodySlice.loadUintBig(64);
+                  const messageCreatorAddress = bodySlice.loadAddress();
+                  
+                  const expectedCreatorAddr = Address.parse(creatorAddress);
+                  
+                  // Verify creator address matches
+                  if (messageCreatorAddress.equals(expectedCreatorAddr)) {
+                    logger.info(`✅ Transaction verified! Hash: ${txHash.substring(0, 16)}..., Amount: ${receivedAmount.toFixed(4)} TON, Time: ${timeDiff}s ago`);
+                    logger.info(`Message details - queryId: ${queryId}, postId: ${postId}, creator: ${messageCreatorAddress.toString()}`);
+                    return true;
+                  } else {
+                    logger.warn(`Creator address mismatch: expected ${expectedCreatorAddr.toString()}, got ${messageCreatorAddress.toString()}`);
+                  }
+                } catch (parseError) {
+                  logger.warn(`Could not parse message body fully:`, parseError);
+                  // If we can't parse but opcode matches and amount/time are correct, accept it
+                  logger.info(`✅ Transaction verified by opcode and amount (hash: ${txHash.substring(0, 16)}...)`);
+                  return true;
+                }
               }
-              
-              logger.info(`Message details - queryId: ${queryId}, postId: ${postId}`);
-            } catch (parseError) {
-              logger.warn(`Could not parse full message body, but opcode is correct`);
+            } catch (bodyError) {
+              logger.warn(`Could not parse message body for tx ${txHash.substring(0, 16)}...`);
             }
-          } else {
-            logger.warn(`⚠️ Unexpected opcode: 0x${opcode.toString(16)}, expected 0x7e8764ef`);
           }
-        } catch (bodyError) {
-          logger.warn(`Could not parse message body:`, bodyError);
         }
       }
 
-      // Step 6: Verify transaction timing (must be recent)
-      const txTime = foundTx.now;
-      const currentTime = Math.floor(Date.now() / 1000);
-      const timeDiff = currentTime - txTime;
-      
-      if (timeDiff > 600) { // 10 minutes
-        logger.warn(`❌ Transaction too old: ${timeDiff}s ago`);
-        return false;
-      }
-
-      logger.info(`✅ Transaction fully verified: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
-      return true;
+      logger.warn(`❌ Transaction not found. Expected: ${expectedAmount} TON (${expectedMin.toFixed(4)} - ${expectedMax.toFixed(4)} TON), Creator: ${creatorAddress.substring(0, 10)}...`);
+      logger.warn(`Contract address: ${this.contractAddress.toString()}`);
+      return false;
 
     } catch (error) {
       logger.error('Error verifying transaction:', error);
