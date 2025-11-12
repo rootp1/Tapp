@@ -557,6 +557,12 @@ class TappBot {
     }
 
     try {
+      // Get creator's wallet address
+      const creator = await User.findOne({ telegramId: userId });
+      if (!creator?.walletAddress) {
+        await ctx.editMessageText('Error: Wallet address not found. Please set your wallet with /setwallet');
+        return;
+      }
 
       const postId = generateId('post');
 
@@ -621,6 +627,7 @@ class TappBot {
         postId,
         channelId: postData.channelId,
         creatorId: userId,
+        creatorWalletAddress: creator.walletAddress,
         teaserMessageId: teaserMessage.message_id,
         price: postData.price,
         currency: 'TON',
