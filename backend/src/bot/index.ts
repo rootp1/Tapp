@@ -794,17 +794,12 @@ class TappBot {
       const post = await Post.findOne({ postId });
       const postTitle = post?.teaserText.substring(0, 50) || 'your post';
       const isLong = (post?.teaserText?.length || 0) > 50;
-      
-      // Build explorer link
-      const network = process.env.TON_NETWORK === 'mainnet' ? '' : 'testnet.';
-      const explorerLink = `https://${network}tonscan.org/tx/${transactionHash}`;
 
       const message =
         `💰 *Payment Received!*\n\n` +
         `You earned *${earnings.toFixed(2)} TON* (95% of ${amount.toFixed(2)} TON)\n\n` +
         `📝 Post: ${postTitle}${isLong ? '...' : ''}\n` +
         `👤 Buyer: User ${buyerId}\n\n` +
-        `🔗 [View Transaction](${explorerLink})\n\n` +
         `💳 Funds have been sent to your wallet!`;
 
       await this.bot.telegram.sendMessage(creatorId, message, {
