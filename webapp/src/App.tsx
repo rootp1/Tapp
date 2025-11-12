@@ -119,7 +119,20 @@ function App() {
       });
 
       if (verifyResponse.data.success) {
-        tg?.showAlert('Payment successful! Check your Telegram DM for the content.');
+        const { explorerLink, tonTransactionHash: txHash } = verifyResponse.data;
+        
+        let successMessage = 'Payment successful! Check your Telegram DM for the content.';
+        if (explorerLink) {
+          successMessage += `\n\nTransaction: ${txHash?.substring(0, 10)}...`;
+        }
+        
+        tg?.showAlert(successMessage);
+        
+        // If explorer link exists, log it (webapp could show it in UI)
+        if (explorerLink) {
+          console.log('Transaction Explorer:', explorerLink);
+        }
+        
         setTimeout(() => tg?.close(), 2000);
       } else {
         throw new Error('Payment verification failed');
