@@ -59,7 +59,8 @@ class PaymentContractService {
   buildProcessPaymentMessage(
     queryId: bigint,
     postId: bigint,
-    creatorAddress: string
+    creatorAddress: string,
+    amount: bigint
   ): string {
     const creator = Address.parse(creatorAddress);
 
@@ -68,6 +69,7 @@ class PaymentContractService {
       .storeUint(queryId, 64)
       .storeUint(postId, 64)
       .storeAddress(creator)
+      .storeCoins(amount)
       .endCell();
 
     return body.toBoc().toString('base64');
@@ -80,7 +82,6 @@ class PaymentContractService {
     totalProcessed: number;
     platformAddress: string;
     platformFeePercent: number;
-    balance: string;
   }> {
     if (!this.contract) {
       throw new Error('Payment contract not initialized');
@@ -91,13 +92,11 @@ class PaymentContractService {
       const totalProcessed = await this.contract.getTotalProcessed();
       const platformAddress = await this.contract.getPlatformAddress();
       const platformFeePercent = await this.contract.getPlatformFeePercent();
-      const balance = await this.contract.getBalance();
 
       return {
         totalProcessed,
         platformAddress: platformAddress.toString(),
         platformFeePercent,
-        balance: (Number(balance) / 1e9).toFixed(4), // Convert to TON
       };
     } catch (error) {
       logger.error('Error getting contract stats:', error);
@@ -107,11 +106,14 @@ class PaymentContractService {
 
   /**
    * Verify a transaction to the payment contract
+   * Retries multiple times to give the transaction time to appear on-chain
    */
   async verifyPaymentTransaction(
     txBoc: string,
     expectedAmount: number,
-    creatorAddress: string
+    creatorAddress: string,
+    maxRetries: number = 10,
+    retryDelayMs: number = 3000
   ): Promise<boolean> {
     try {
       if (!this.contractAddress) {
@@ -120,72 +122,83 @@ class PaymentContractService {
 
       logger.info(`Verifying payment: amount=${expectedAmount} TON, creator=${creatorAddress.substring(0, 10)}...`);
 
-      // Get recent transactions from the contract
-      const transactions = await this.client.getTransactions(this.contractAddress, { limit: 50 });
-      logger.info(`Checking ${transactions.length} recent transactions on contract ${this.contractAddress.toString()}`);
-
-      // Since result.boc is the external message, not the actual transaction hash,
-      // we'll verify by amount and message body content
+      // Calculate expected range once
       const expectedMin = expectedAmount * 0.90;
       const expectedMax = expectedAmount * 1.10;
-      const currentTime = Math.floor(Date.now() / 1000);
 
-      for (const tx of transactions) {
-        const inMessage = tx.inMessage;
-        if (!inMessage || inMessage.info.type !== 'internal') {
-          continue;
-        }
+      // Retry logic: transaction might not appear immediately
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        logger.info(`Verification attempt ${attempt}/${maxRetries}`);
 
-        const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
-        const txTime = tx.now;
-        const timeDiff = currentTime - txTime;
-        const txHash = tx.hash().toString('hex');
-        
-        logger.info(`TX: hash=${txHash.substring(0, 16)}..., amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
-        
-        // Check amount and timing
-        if (receivedAmount >= expectedMin && receivedAmount <= expectedMax && timeDiff < 600) {
+        // Get recent transactions from the contract
+        const transactions = await this.client.getTransactions(this.contractAddress, { limit: 50 });
+        logger.info(`Checking ${transactions.length} recent transactions on contract ${this.contractAddress.toString()}`);
+
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        for (const tx of transactions) {
+          const inMessage = tx.inMessage;
+          if (!inMessage || inMessage.info.type !== 'internal') {
+            continue;
+          }
+
+          const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
+          const txTime = tx.now;
+          const timeDiff = currentTime - txTime;
+          const txHash = tx.hash().toString('hex');
           
-          // Verify message body contains ProcessPayment opcode and creator address
-          if (inMessage.body) {
-            try {
-              const bodySlice = inMessage.body.beginParse();
-              const opcode = bodySlice.loadUint(32);
-              
-              // ProcessPayment opcode is 0x7e8764ef
-              if (opcode === 0x7e8764ef) {
-                logger.info(`Found ProcessPayment message (opcode: 0x${opcode.toString(16)})`);
+          logger.info(`TX: hash=${txHash.substring(0, 16)}..., amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
+          
+          // Check amount and timing
+          if (receivedAmount >= expectedMin && receivedAmount <= expectedMax && timeDiff < 600) {
+            
+            // Verify message body contains ProcessPayment opcode and creator address
+            if (inMessage.body) {
+              try {
+                const bodySlice = inMessage.body.beginParse();
+                const opcode = bodySlice.loadUint(32);
                 
-                try {
-                  const queryId = bodySlice.loadUintBig(64);
-                  const postId = bodySlice.loadUintBig(64);
-                  const messageCreatorAddress = bodySlice.loadAddress();
+                // ProcessPayment opcode is 0x7e8764ef
+                if (opcode === 0x7e8764ef) {
+                  logger.info(`Found ProcessPayment message (opcode: 0x${opcode.toString(16)})`);
                   
-                  const expectedCreatorAddr = Address.parse(creatorAddress);
-                  
-                  // Verify creator address matches
-                  if (messageCreatorAddress.equals(expectedCreatorAddr)) {
-                    logger.info(`✅ Transaction verified! Hash: ${txHash.substring(0, 16)}..., Amount: ${receivedAmount.toFixed(4)} TON, Time: ${timeDiff}s ago`);
-                    logger.info(`Message details - queryId: ${queryId}, postId: ${postId}, creator: ${messageCreatorAddress.toString()}`);
+                  try {
+                    const queryId = bodySlice.loadUintBig(64);
+                    const postId = bodySlice.loadUintBig(64);
+                    const messageCreatorAddress = bodySlice.loadAddress();
+                    
+                    const expectedCreatorAddr = Address.parse(creatorAddress);
+                    
+                    // Verify creator address matches
+                    if (messageCreatorAddress.equals(expectedCreatorAddr)) {
+                      logger.info(`✅ Transaction verified! Hash: ${txHash.substring(0, 16)}..., Amount: ${receivedAmount.toFixed(4)} TON, Time: ${timeDiff}s ago`);
+                      logger.info(`Message details - queryId: ${queryId}, postId: ${postId}, creator: ${messageCreatorAddress.toString()}`);
+                      return true;
+                    } else {
+                      logger.warn(`Creator address mismatch: expected ${expectedCreatorAddr.toString()}, got ${messageCreatorAddress.toString()}`);
+                    }
+                  } catch (parseError) {
+                    logger.warn(`Could not parse message body fully:`, parseError);
+                    // If we can't parse but opcode matches and amount/time are correct, accept it
+                    logger.info(`✅ Transaction verified by opcode and amount (hash: ${txHash.substring(0, 16)}...)`);
                     return true;
-                  } else {
-                    logger.warn(`Creator address mismatch: expected ${expectedCreatorAddr.toString()}, got ${messageCreatorAddress.toString()}`);
                   }
-                } catch (parseError) {
-                  logger.warn(`Could not parse message body fully:`, parseError);
-                  // If we can't parse but opcode matches and amount/time are correct, accept it
-                  logger.info(`✅ Transaction verified by opcode and amount (hash: ${txHash.substring(0, 16)}...)`);
-                  return true;
                 }
+              } catch (bodyError) {
+                logger.warn(`Could not parse message body for tx ${txHash.substring(0, 16)}...`);
               }
-            } catch (bodyError) {
-              logger.warn(`Could not parse message body for tx ${txHash.substring(0, 16)}...`);
             }
           }
         }
+
+        // If not found in this attempt, wait before retry
+        if (attempt < maxRetries) {
+          logger.info(`Transaction not found yet, waiting ${retryDelayMs}ms before retry ${attempt + 1}/${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        }
       }
 
-      logger.warn(`❌ Transaction not found. Expected: ${expectedAmount} TON (${expectedMin.toFixed(4)} - ${expectedMax.toFixed(4)} TON), Creator: ${creatorAddress.substring(0, 10)}...`);
+      logger.warn(`❌ Transaction not found after ${maxRetries} attempts. Expected: ${expectedAmount} TON (${expectedMin.toFixed(4)} - ${expectedMax.toFixed(4)} TON), Creator: ${creatorAddress.substring(0, 10)}...`);
       logger.warn(`Contract address: ${this.contractAddress.toString()}`);
       return false;
 

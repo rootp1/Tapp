@@ -51,6 +51,7 @@ export class PaymentContract implements Contract {
             queryId: bigint;
             postId: bigint;
             creatorAddress: Address;
+            amount: bigint;
         }
     ) {
         await provider.internal(via, {
@@ -61,6 +62,7 @@ export class PaymentContract implements Contract {
                 .storeUint(opts.queryId, 64)
                 .storeUint(opts.postId, 64)
                 .storeAddress(opts.creatorAddress)
+                .storeCoins(opts.amount)
                 .endCell(),
         });
     }
@@ -98,10 +100,5 @@ export class PaymentContract implements Contract {
     async getPlatformFeePercent(provider: ContractProvider): Promise<number> {
         const result = await provider.get('getPlatformFeePercent', []);
         return result.stack.readNumber();
-    }
-
-    async getBalance(provider: ContractProvider): Promise<bigint> {
-        const result = await provider.get('getBalance', []);
-        return result.stack.readBigNumber();
     }
 }

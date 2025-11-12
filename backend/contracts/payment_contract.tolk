@@ -22,6 +22,7 @@ struct (0x7e8764ef) ProcessPayment {
     queryId: uint64        // Unique query identifier
     postId: uint64         // ID of the post being purchased
     creatorAddress: address // Address of the content creator
+    amount: coins          // Amount being paid (for calculation)
 }
 
 // Message to withdraw platform earnings (admin only)
@@ -42,18 +43,17 @@ fun onInternalMessage(in: InMessage) {
             // Load storage
             var storage = lazy Storage.load();
 
-            // Get the amount received - use a smaller gas reserve
-            val contractBalance = getBalance();
+            // Use the amount from the message
+            val totalAmount = msg.amount;
             val gasReserve = 10000000;  // 0.01 TON for gas
 
-            // Ensure we have enough balance
-            assert(contractBalance > gasReserve) throw 100;
+            // Ensure we have enough
+            assert(totalAmount > gasReserve) throw 100;
 
-            // Split available balance (after gas reserve)
-            val amountToSplit = contractBalance - gasReserve;
+            // Split available amount (after gas reserve)
+            val amountToSplit = totalAmount - gasReserve;
 
             // Calculate fees and earnings
-            // Platform fee = (amount * feePercent) / 100
             val platformFee = (amountToSplit * storage.platformFeePercent) / 100;
             val creatorEarnings = amountToSplit - platformFee;
 
@@ -129,9 +129,4 @@ get fun getPlatformAddress(): address {
 get fun getPlatformFeePercent(): int {
     val storage = lazy Storage.load();
     return storage.platformFeePercent;
-}
-
-// Get method: returns contract balance
-get fun getBalance(): int {
-    return getBalance();
 }

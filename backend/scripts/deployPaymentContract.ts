@@ -55,9 +55,7 @@ export async function run(provider: NetworkProvider) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         console.log('\nVerifying contract state...');
-        const balance = await contract.getBalance();
         const feePercent = await contract.getPlatformFeePercent();
-        console.log('Balance:', balance.toString());
         console.log('Platform Fee Percent:', feePercent + '%');
     } catch (error) {
         console.log('\nNote: Contract deployed successfully but get methods are not yet available.');

@@ -69,12 +69,16 @@ router.post('/create', async (req: Request, res: Response) => {
 
     // Convert postId string to uint64 for smart contract
     const postIdHash = postIdToUint64(postId);
+    
+    // Convert amount to nanoTON
+    const amountInNano = BigInt(Math.floor(post.price * 1e9));
 
     // Build the ProcessPayment message
     const messageBody = paymentContractService.buildProcessPaymentMessage(
       queryId,
       postIdHash,
-      creatorTonAddress
+      creatorTonAddress,
+      amountInNano
     );
 
     res.json({

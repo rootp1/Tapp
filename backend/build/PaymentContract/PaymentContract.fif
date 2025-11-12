@@ -5,143 +5,144 @@ PROGRAM{
   74410 DECLMETHOD getTotalProcessed()
   76692 DECLMETHOD getPlatformAddress()
   117596 DECLMETHOD getPlatformFeePercent()
-  106323 DECLMETHOD getBalance()
   // 3 functions inlined in-place:
   // - Storage.load (5 calls)
   // - Storage.save (1 call)
   // - onBouncedMessage (0 calls)
-  // contracts/payment_contract.tolk:37
+  // contracts/payment_contract.tolk:38
   onInternalMessage() PROC:<{ 	//  in.body
-    // 37: fun onInternalMessage(in: InMessage)
+    // 38: fun onInternalMessage(in: InMessage)
     INMSG_BOUNCED           	//  in.body '1
     IFJMP:<{                	//  in.body
       DROP                  	// 
     }>                      	//  in.body
-    // 38: val msg = lazy AllowedMessage.fromSlice(in.body)
+    // 39: val msg = lazy AllowedMessage.fromSlice(in.body)
     DUP                     	//  in.body lazyS
-    // 40: match (msg)
-    x{7e8764ef} SDBEGINSQ   	//  in.body lazyS '11
+    // 41: match (msg)
+    x{7e8764ef} SDBEGINSQ   	//  in.body lazyS '12
     IFJMP:<{                	//  in.body lazyS
       // 12: return Storage.fromCell(contract.getData())
       NIP                   	//  lazyS
-      c4 PUSH               	//  lazyS '18
-      // 43: var storage = lazy Storage.load()
+      c4 PUSH               	//  lazyS '19
+      // 44: var storage = lazy Storage.load()
       CTOS                  	//  lazyS lazyS
-      // 46: val contractBalance = getBalance()
-      getBalance() CALLDICT 	//  lazyS lazyS contractBalance
-      // 47: val gasReserve = 10000000;  // 0.01 TON for gas
-      10000000 PUSHINT      	//  lazyS lazyS contractBalance gasReserve=10000000
-      2DUP                  	//  lazyS lazyS contractBalance gasReserve=10000000 contractBalance gasReserve=10000000
-      // 50: assert(contractBalance > gasReserve) throw 100
-      GREATER               	//  lazyS lazyS contractBalance gasReserve=10000000 '27
-      100 THROWIFNOT        	//  lazyS lazyS contractBalance gasReserve=10000000
-      // 53: val amountToSplit = contractBalance - gasReserve
-      SUB                   	//  lazyS lazyS amountToSplit
-      // 57: val platformFee = (amountToSplit * storage.platformFeePercent) / 100
-      SWAP                  	//  lazyS amountToSplit lazyS
-      LDMSGADDR             	//  lazyS amountToSplit storage.platformAddress lazyS
-      8 LDU                 	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent lazyS
-      64 PLDU               	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed
-      s3 s1 PUSH2           	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed amountToSplit storage.platformFeePercent
-      MUL                   	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed '37
-      100 PUSHINT           	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed '37 '38=100
-      DIV                   	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed platformFee
-      s4 s4 XCPU            	//  lazyS platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed amountToSplit platformFee
-      // 58: val creatorEarnings = amountToSplit - platformFee
-      SUB                   	//  lazyS platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed creatorEarnings
-      // 61: sendRawMessage(beginCell()
-      s0 s5 XCHG            	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed lazyS
+      // 47: val totalAmount = msg.amount
+      SWAP                  	//  lazyS lazyS
       128 LDU
-      NIP                   	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed lazyS
-      LDMSGADDR             	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed '43 lazyS
-      DROP                  	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed msg.USlot3
-      NEWC                  	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed msg.USlot3 '45
+      NIP                   	//  lazyS lazyS
+      LDMSGADDR             	//  lazyS msg.USlot3 lazyS
+      LDGRAMS               	//  lazyS msg.USlot3 '25 lazyS
+      DROP                  	//  lazyS msg.USlot3 totalAmount
+      // 48: val gasReserve = 10000000;  // 0.01 TON for gas
+      10000000 PUSHINT      	//  lazyS msg.USlot3 totalAmount gasReserve=10000000
+      2DUP                  	//  lazyS msg.USlot3 totalAmount gasReserve=10000000 totalAmount gasReserve=10000000
+      // 51: assert(totalAmount > gasReserve) throw 100
+      GREATER               	//  lazyS msg.USlot3 totalAmount gasReserve=10000000 '30
+      100 THROWIFNOT        	//  lazyS msg.USlot3 totalAmount gasReserve=10000000
+      // 54: val amountToSplit = totalAmount - gasReserve
+      SUB                   	//  lazyS msg.USlot3 amountToSplit
+      // 57: val platformFee = (amountToSplit * storage.platformFeePercent) / 100
+      s0 s2 XCHG            	//  amountToSplit msg.USlot3 lazyS
+      LDMSGADDR             	//  amountToSplit msg.USlot3 storage.platformAddress lazyS
+      8 LDU                 	//  amountToSplit msg.USlot3 storage.platformAddress storage.platformFeePercent lazyS
+      64 PLDU               	//  amountToSplit msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed
+      s4 s1 PUSH2           	//  amountToSplit msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed amountToSplit storage.platformFeePercent
+      MUL                   	//  amountToSplit msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed '40
+      100 PUSHINT           	//  amountToSplit msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed '40 '41=100
+      DIV                   	//  amountToSplit msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed platformFee
+      s5 s5 XCPU            	//  platformFee msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed amountToSplit platformFee
+      // 58: val creatorEarnings = amountToSplit - platformFee
+      SUB                   	//  platformFee msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed creatorEarnings
+      // 61: sendRawMessage(beginCell()
+      NEWC                  	//  platformFee msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed creatorEarnings '46
       // 62: .storeUint(0x10, 6)                // nobounce
-      b{010000} STSLICECONST	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed msg.USlot3 '45
+      b{010000} STSLICECONST	//  platformFee msg.USlot3 storage.platformAddress storage.platformFeePercent storage.totalProcessed creatorEarnings '46
       // 63: .storeAddress(msg.creatorAddress)  // destination
-      STSLICE               	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed '45
-      s0 s5 XCHG2           	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '45 creatorEarnings
+      s1 s5 XCHG            	//  platformFee creatorEarnings storage.platformAddress storage.platformFeePercent storage.totalProcessed msg.USlot3 '46
+      STSLICE               	//  platformFee creatorEarnings storage.platformAddress storage.platformFeePercent storage.totalProcessed '46
+      s0 s4 XCHG2           	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '46 creatorEarnings
       // 64: .storeCoins(creatorEarnings)
-      STGRAMS               	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '45
+      STGRAMS               	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '46
       // 65: .storeUint(0, 107)                 // empty payload
       0 PUSHINT
-      107 STUR              	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '45
+      107 STUR              	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '46
       // 66: .endCell()
-      ENDC                  	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '53
+      ENDC                  	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '54
       // 67: 1  // send mode: pay transfer fees separately
-      1 PUSHINT             	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '53 '54=1
+      1 PUSHINT             	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '54 '55=1
       // 61: sendRawMessage(beginCell()
-      SENDRAWMSG            	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent
+      SENDRAWMSG            	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent
       // 71: sendRawMessage(beginCell()
-      NEWC                  	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56
+      NEWC                  	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '57
       // 72: .storeUint(0x10, 6)                    // nobounce
-      b{010000} STSLICECONST	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56
+      b{010000} STSLICECONST	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '57
       // 73: .storeAddress(storage.platformAddress) // destination
-      s2 PUSH               	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56 storage.platformAddress
-      STSLICER              	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56
-      s0 s3 XCHG2           	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '56 platformFee
+      s2 PUSH               	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '57 storage.platformAddress
+      STSLICER              	//  platformFee storage.totalProcessed storage.platformAddress storage.platformFeePercent '57
+      s0 s4 XCHG2           	//  storage.platformFeePercent storage.totalProcessed storage.platformAddress '57 platformFee
       // 74: .storeCoins(platformFee)
-      STGRAMS               	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '56
+      STGRAMS               	//  storage.platformFeePercent storage.totalProcessed storage.platformAddress '57
       // 75: .storeUint(0, 107)                     // empty payload
       0 PUSHINT
-      107 STUR              	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '56
+      107 STUR              	//  storage.platformFeePercent storage.totalProcessed storage.platformAddress '57
       // 76: .endCell()
-      ENDC                  	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '64
+      ENDC                  	//  storage.platformFeePercent storage.totalProcessed storage.platformAddress '65
       // 77: 1  // send mode: pay transfer fees separately
-      1 PUSHINT             	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '64 '65=1
+      1 PUSHINT             	//  storage.platformFeePercent storage.totalProcessed storage.platformAddress '65 '66=1
       // 71: sendRawMessage(beginCell()
-      SENDRAWMSG            	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress
+      SENDRAWMSG            	//  storage.platformFeePercent storage.totalProcessed storage.platformAddress
       // 81: storage.totalProcessed += 1
-      s0 s2 XCHG            	//  storage.platformAddress storage.platformFeePercent storage.totalProcessed
-      INC                   	//  storage.platformAddress storage.platformFeePercent storage.totalProcessed
+      SWAP                  	//  storage.platformFeePercent storage.platformAddress storage.totalProcessed
+      INC                   	//  storage.platformFeePercent storage.platformAddress storage.totalProcessed
       // 17: contract.setData(self.toCell())
-      s0 s2 XCHG
-      NEWC                  	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress b
-      STSLICE               	//  storage.totalProcessed storage.platformFeePercent b
+      SWAP
+      NEWC                  	//  storage.platformFeePercent storage.totalProcessed storage.platformAddress b
+      STSLICE               	//  storage.platformFeePercent storage.totalProcessed b
+      s1 s2 XCHG            	//  storage.totalProcessed storage.platformFeePercent b
       8 STU                 	//  storage.totalProcessed b
       64 STU                	//  b
-      ENDC                  	//  '72
+      ENDC                  	//  '73
       c4 POP                	// 
     }>                      	//  in.body lazyS
-    // 40: match (msg)
-    x{3a752f06} SDBEGINSQ   	//  in.body lazyS '11
+    // 41: match (msg)
+    x{3a752f06} SDBEGINSQ   	//  in.body lazyS '12
     IFJMP:<{                	//  in.body lazyS
       // 12: return Storage.fromCell(contract.getData())
       NIP                   	//  lazyS
-      c4 PUSH               	//  lazyS '79
+      c4 PUSH               	//  lazyS '80
       // 87: var storage = lazy Storage.load()
       CTOS                  	//  lazyS lazyS
       // 93: sendRawMessage(beginCell()
       SWAP                  	//  lazyS lazyS
       64 LDU
       NIP                   	//  lazyS lazyS
-      LDGRAMS               	//  lazyS '84 lazyS
-      DROP                  	//  lazyS msg.USlot3
-      SWAP                  	//  msg.USlot3 lazyS
-      LDMSGADDR             	//  msg.USlot3 '85 lazyS
-      DROP                  	//  msg.USlot3 storage.platformAddress
-      NEWC                  	//  msg.USlot3 storage.platformAddress '87
+      LDGRAMS               	//  lazyS '85 lazyS
+      DROP                  	//  lazyS msg.USlot4
+      SWAP                  	//  msg.USlot4 lazyS
+      LDMSGADDR             	//  msg.USlot4 '86 lazyS
+      DROP                  	//  msg.USlot4 storage.platformAddress
+      NEWC                  	//  msg.USlot4 storage.platformAddress '88
       // 94: .storeUint(0x10, 6)
-      b{010000} STSLICECONST	//  msg.USlot3 storage.platformAddress '87
+      b{010000} STSLICECONST	//  msg.USlot4 storage.platformAddress '88
       // 95: .storeAddress(storage.platformAddress)
-      STSLICE               	//  msg.USlot3 '87
+      STSLICE               	//  msg.USlot4 '88
       // 96: .storeCoins(msg.amount)
-      SWAP                  	//  '87 msg.USlot3
-      STGRAMS               	//  '87
+      SWAP                  	//  '88 msg.USlot4
+      STGRAMS               	//  '88
       // 97: .storeUint(0, 107)
       0 PUSHINT
-      107 STUR              	//  '87
+      107 STUR              	//  '88
       // 98: .endCell()
-      ENDC                  	//  '95
-      1 PUSHINT             	//  '95 '96=1
+      ENDC                  	//  '96
+      1 PUSHINT             	//  '96 '97=1
       // 93: sendRawMessage(beginCell()
       SENDRAWMSG            	// 
     }>                      	//  in.body lazyS
     // 105: assert(in.body.isEmpty()) throw 0xFFFF
     DROP                    	//  in.body
-    16 PUSHPOW2DEC          	//  in.body '97=65535
-    SWAP                    	//  '97=65535 in.body
-    SEMPTY                  	//  '97=65535 '98
+    16 PUSHPOW2DEC          	//  in.body '98=65535
+    SWAP                    	//  '98=65535 in.body
+    SEMPTY                  	//  '98=65535 '99
     THROWANYIFNOT           	// 
   }>
   // contracts/payment_contract.tolk:117:5
@@ -177,10 +178,5 @@ PROGRAM{
     LDMSGADDR               	//  '8 lazyS
     NIP                     	//  lazyS
     8 PLDU                  	//  storage.platformFeePercent
-  }>
-  // contracts/payment_contract.tolk:135:5
-  getBalance() PROC:<{        	// 
-    // 136: return getBalance()
-    getBalance() CALLDICT   	//  '0
   }>
 }END>c
