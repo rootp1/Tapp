@@ -1,0 +1,186 @@
+"Asm.fif" include
+// automatically generated from payment_contract.tolk
+PROGRAM{
+  0 DECLMETHOD onInternalMessage()
+  74410 DECLMETHOD getTotalProcessed()
+  76692 DECLMETHOD getPlatformAddress()
+  117596 DECLMETHOD getPlatformFeePercent()
+  106323 DECLMETHOD getBalance()
+  // 3 functions inlined in-place:
+  // - Storage.load (5 calls)
+  // - Storage.save (1 call)
+  // - onBouncedMessage (0 calls)
+  // contracts/payment_contract.tolk:37
+  onInternalMessage() PROC:<{ 	//  in.body
+    // 37: fun onInternalMessage(in: InMessage)
+    INMSG_BOUNCED           	//  in.body '1
+    IFJMP:<{                	//  in.body
+      DROP                  	// 
+    }>                      	//  in.body
+    // 38: val msg = lazy AllowedMessage.fromSlice(in.body)
+    DUP                     	//  in.body lazyS
+    // 40: match (msg)
+    x{7e8764ef} SDBEGINSQ   	//  in.body lazyS '11
+    IFJMP:<{                	//  in.body lazyS
+      // 12: return Storage.fromCell(contract.getData())
+      NIP                   	//  lazyS
+      c4 PUSH               	//  lazyS '18
+      // 43: var storage = lazy Storage.load()
+      CTOS                  	//  lazyS lazyS
+      // 46: val contractBalance = getBalance()
+      getBalance() CALLDICT 	//  lazyS lazyS contractBalance
+      // 47: val gasReserve = 10000000;  // 0.01 TON for gas
+      10000000 PUSHINT      	//  lazyS lazyS contractBalance gasReserve=10000000
+      2DUP                  	//  lazyS lazyS contractBalance gasReserve=10000000 contractBalance gasReserve=10000000
+      // 50: assert(contractBalance > gasReserve) throw 100
+      GREATER               	//  lazyS lazyS contractBalance gasReserve=10000000 '27
+      100 THROWIFNOT        	//  lazyS lazyS contractBalance gasReserve=10000000
+      // 53: val amountToSplit = contractBalance - gasReserve
+      SUB                   	//  lazyS lazyS amountToSplit
+      // 57: val platformFee = (amountToSplit * storage.platformFeePercent) / 100
+      SWAP                  	//  lazyS amountToSplit lazyS
+      LDMSGADDR             	//  lazyS amountToSplit storage.platformAddress lazyS
+      8 LDU                 	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent lazyS
+      64 PLDU               	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed
+      s3 s1 PUSH2           	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed amountToSplit storage.platformFeePercent
+      MUL                   	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed '37
+      100 PUSHINT           	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed '37 '38=100
+      DIV                   	//  lazyS amountToSplit storage.platformAddress storage.platformFeePercent storage.totalProcessed platformFee
+      s4 s4 XCPU            	//  lazyS platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed amountToSplit platformFee
+      // 58: val creatorEarnings = amountToSplit - platformFee
+      SUB                   	//  lazyS platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed creatorEarnings
+      // 61: sendRawMessage(beginCell()
+      s0 s5 XCHG            	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed lazyS
+      128 LDU
+      NIP                   	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed lazyS
+      LDMSGADDR             	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed '43 lazyS
+      DROP                  	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed msg.USlot3
+      NEWC                  	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed msg.USlot3 '45
+      // 62: .storeUint(0x10, 6)                // nobounce
+      b{010000} STSLICECONST	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed msg.USlot3 '45
+      // 63: .storeAddress(msg.creatorAddress)  // destination
+      STSLICE               	//  creatorEarnings platformFee storage.platformAddress storage.platformFeePercent storage.totalProcessed '45
+      s0 s5 XCHG2           	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '45 creatorEarnings
+      // 64: .storeCoins(creatorEarnings)
+      STGRAMS               	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '45
+      // 65: .storeUint(0, 107)                 // empty payload
+      0 PUSHINT
+      107 STUR              	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '45
+      // 66: .endCell()
+      ENDC                  	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '53
+      // 67: 1  // send mode: pay transfer fees separately
+      1 PUSHINT             	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '53 '54=1
+      // 61: sendRawMessage(beginCell()
+      SENDRAWMSG            	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent
+      // 71: sendRawMessage(beginCell()
+      NEWC                  	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56
+      // 72: .storeUint(0x10, 6)                    // nobounce
+      b{010000} STSLICECONST	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56
+      // 73: .storeAddress(storage.platformAddress) // destination
+      s2 PUSH               	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56 storage.platformAddress
+      STSLICER              	//  storage.totalProcessed platformFee storage.platformAddress storage.platformFeePercent '56
+      s0 s3 XCHG2           	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '56 platformFee
+      // 74: .storeCoins(platformFee)
+      STGRAMS               	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '56
+      // 75: .storeUint(0, 107)                     // empty payload
+      0 PUSHINT
+      107 STUR              	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '56
+      // 76: .endCell()
+      ENDC                  	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '64
+      // 77: 1  // send mode: pay transfer fees separately
+      1 PUSHINT             	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress '64 '65=1
+      // 71: sendRawMessage(beginCell()
+      SENDRAWMSG            	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress
+      // 81: storage.totalProcessed += 1
+      s0 s2 XCHG            	//  storage.platformAddress storage.platformFeePercent storage.totalProcessed
+      INC                   	//  storage.platformAddress storage.platformFeePercent storage.totalProcessed
+      // 17: contract.setData(self.toCell())
+      s0 s2 XCHG
+      NEWC                  	//  storage.totalProcessed storage.platformFeePercent storage.platformAddress b
+      STSLICE               	//  storage.totalProcessed storage.platformFeePercent b
+      8 STU                 	//  storage.totalProcessed b
+      64 STU                	//  b
+      ENDC                  	//  '72
+      c4 POP                	// 
+    }>                      	//  in.body lazyS
+    // 40: match (msg)
+    x{3a752f06} SDBEGINSQ   	//  in.body lazyS '11
+    IFJMP:<{                	//  in.body lazyS
+      // 12: return Storage.fromCell(contract.getData())
+      NIP                   	//  lazyS
+      c4 PUSH               	//  lazyS '79
+      // 87: var storage = lazy Storage.load()
+      CTOS                  	//  lazyS lazyS
+      // 93: sendRawMessage(beginCell()
+      SWAP                  	//  lazyS lazyS
+      64 LDU
+      NIP                   	//  lazyS lazyS
+      LDGRAMS               	//  lazyS '84 lazyS
+      DROP                  	//  lazyS msg.USlot3
+      SWAP                  	//  msg.USlot3 lazyS
+      LDMSGADDR             	//  msg.USlot3 '85 lazyS
+      DROP                  	//  msg.USlot3 storage.platformAddress
+      NEWC                  	//  msg.USlot3 storage.platformAddress '87
+      // 94: .storeUint(0x10, 6)
+      b{010000} STSLICECONST	//  msg.USlot3 storage.platformAddress '87
+      // 95: .storeAddress(storage.platformAddress)
+      STSLICE               	//  msg.USlot3 '87
+      // 96: .storeCoins(msg.amount)
+      SWAP                  	//  '87 msg.USlot3
+      STGRAMS               	//  '87
+      // 97: .storeUint(0, 107)
+      0 PUSHINT
+      107 STUR              	//  '87
+      // 98: .endCell()
+      ENDC                  	//  '95
+      1 PUSHINT             	//  '95 '96=1
+      // 93: sendRawMessage(beginCell()
+      SENDRAWMSG            	// 
+    }>                      	//  in.body lazyS
+    // 105: assert(in.body.isEmpty()) throw 0xFFFF
+    DROP                    	//  in.body
+    16 PUSHPOW2DEC          	//  in.body '97=65535
+    SWAP                    	//  '97=65535 in.body
+    SEMPTY                  	//  '97=65535 '98
+    THROWANYIFNOT           	// 
+  }>
+  // contracts/payment_contract.tolk:117:5
+  getTotalProcessed() PROC:<{ 	// 
+    // 12: return Storage.fromCell(contract.getData())
+    c4 PUSH                 	//  '4
+    // 118: val storage = lazy Storage.load()
+    CTOS                    	//  lazyS
+    // 119: return storage.totalProcessed
+    LDMSGADDR               	//  '8 lazyS
+    NIP                     	//  lazyS
+    8 LDU
+    NIP                     	//  lazyS
+    64 PLDU                 	//  storage.totalProcessed
+  }>
+  // contracts/payment_contract.tolk:123:5
+  getPlatformAddress() PROC:<{	// 
+    // 12: return Storage.fromCell(contract.getData())
+    c4 PUSH                 	//  '4
+    // 124: val storage = lazy Storage.load()
+    CTOS                    	//  lazyS
+    // 125: return storage.platformAddress
+    LDMSGADDR               	//  '8 lazyS
+    DROP                    	//  storage.platformAddress
+  }>
+  // contracts/payment_contract.tolk:129:5
+  getPlatformFeePercent() PROC:<{	// 
+    // 12: return Storage.fromCell(contract.getData())
+    c4 PUSH                 	//  '4
+    // 130: val storage = lazy Storage.load()
+    CTOS                    	//  lazyS
+    // 131: return storage.platformFeePercent
+    LDMSGADDR               	//  '8 lazyS
+    NIP                     	//  lazyS
+    8 PLDU                  	//  storage.platformFeePercent
+  }>
+  // contracts/payment_contract.tolk:135:5
+  getBalance() PROC:<{        	// 
+    // 136: return getBalance()
+    getBalance() CALLDICT   	//  '0
+  }>
+}END>c
