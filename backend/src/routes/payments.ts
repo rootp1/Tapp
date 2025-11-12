@@ -31,9 +31,13 @@ router.post('/create', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // Get creator's TON wallet address
-    const creator = await User.findOne({ telegramId: post.creatorId });
-    const creatorTonAddress = creatorAddress || creator?.walletAddress;
+    // Get creator's TON wallet address from post or fallback to user's wallet
+    let creatorTonAddress = post.creatorWalletAddress || creatorAddress;
+    
+    if (!creatorTonAddress) {
+      const creator = await User.findOne({ telegramId: post.creatorId });
+      creatorTonAddress = creator?.walletAddress;
+    }
 
     if (!creatorTonAddress) {
       return res.status(400).json({ error: 'Creator wallet address not found' });
