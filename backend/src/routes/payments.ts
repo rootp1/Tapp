@@ -179,6 +179,16 @@ router.post('/verify', async (req: Request, res: Response) => {
 
     await tappBot.deliverContent(transaction.buyerId, transaction.postId);
 
+    // Notify creator about payment
+    await tappBot.notifyCreatorPayment(
+      transaction.creatorId,
+      transaction.amount,
+      transaction.creatorEarnings,
+      transaction.postId,
+      transaction.buyerId,
+      tonTransactionHash
+    );
+
     // Build explorer link
     const network = process.env.TON_NETWORK === 'mainnet' ? '' : 'testnet.';
     const explorerLink = `https://${network}tonscan.org/tx/${tonTransactionHash}`;
