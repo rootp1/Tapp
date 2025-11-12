@@ -65,19 +65,20 @@ export const BackendStatus = ({ apiUrl }: BackendStatusProps) => {
   const getStatusDisplay = () => {
     switch (status) {
       case 'checking':
-        return { emoji: '🔍', text: 'Checking...', color: '#ffa500' };
+        return { emoji: '🔍', text: 'Checking...', color: '#ffa500', label: 'Checking...' };
       case 'online':
         return { 
-          emoji: responseTime < 1000 ? '🟢' : responseTime < 3000 ? '🟡' : '🟠', 
+          emoji: '●', 
           text: `Online (${responseTime}ms)`, 
-          color: responseTime < 1000 ? '#00ff00' : responseTime < 3000 ? '#ffff00' : '#ffa500' 
+          color: '#00ff00',
+          label: 'Backend Active'
         };
       case 'offline':
-        return { emoji: '🔴', text: 'Offline', color: '#ff0000' };
+        return { emoji: '●', text: 'Offline', color: '#ff0000', label: 'Backend Offline' };
       case 'waking':
-        return { emoji: '⏳', text: 'Waking up...', color: '#00bfff' };
+        return { emoji: '⏳', text: 'Waking up...', color: '#00bfff', label: 'Waking Up...' };
       default:
-        return { emoji: '❓', text: 'Unknown', color: '#808080' };
+        return { emoji: '●', text: 'Unknown', color: '#808080', label: 'Unknown' };
     }
   };
 
@@ -89,8 +90,10 @@ export const BackendStatus = ({ apiUrl }: BackendStatusProps) => {
         className="status-toggle-btn"
         onClick={() => setShowStatus(!showStatus)}
         title="Check backend status"
+        style={{ color: statusDisplay.color }}
       >
         <span className="status-emoji">{statusDisplay.emoji}</span>
+        <span className="status-label">{statusDisplay.label}</span>
       </button>
 
       {showStatus && (
