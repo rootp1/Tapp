@@ -4,6 +4,7 @@ export interface IPost extends Document {
   postId: string;
   channelId: string;
   creatorId: string;
+  creatorWalletAddress?: string;
   teaserMessageId: number;
   price: number;
   currency: string;
@@ -38,6 +39,10 @@ const PostSchema: Schema = new Schema(
       type: String,
       required: true,
       index: true,
+    },
+    creatorWalletAddress: {
+      type: String,
+      required: false,
     },
     teaserMessageId: {
       type: Number,
