@@ -34,7 +34,6 @@ struct (0x3a752f06) WithdrawPlatformFees {
 type AllowedMessage = ProcessPayment | WithdrawPlatformFees
 
 // Main entrypoint: handles incoming messages
-// Note: In Tolk, we need to manually parse the full message to get value
 fun onInternalMessage(in: InMessage) {
     val msg = lazy AllowedMessage.fromSlice(in.body);
 
@@ -43,21 +42,20 @@ fun onInternalMessage(in: InMessage) {
             // Load storage
             var storage = lazy Storage.load();
 
-            // Get contract balance AFTER receiving the payment
-            // The balance already includes the incoming value
+            // Get the amount received - use a smaller gas reserve
             val contractBalance = getBalance();
-            val gasReserve = 50000000;  // 0.05 TON reserved for gas and storage fees
+            val gasReserve = 10000000;  // 0.01 TON for gas
 
             // Ensure we have enough balance
             assert(contractBalance > gasReserve) throw 100;
 
-            // Available amount is balance minus gas reserve
-            val availableAmount = contractBalance - gasReserve;
+            // Split available balance (after gas reserve)
+            val amountToSplit = contractBalance - gasReserve;
 
             // Calculate fees and earnings
             // Platform fee = (amount * feePercent) / 100
-            val platformFee = (availableAmount * storage.platformFeePercent) / 100;
-            val creatorEarnings = availableAmount - platformFee;
+            val platformFee = (amountToSplit * storage.platformFeePercent) / 100;
+            val creatorEarnings = amountToSplit - platformFee;
 
             // Send earnings to creator
             sendRawMessage(beginCell()
@@ -66,7 +64,7 @@ fun onInternalMessage(in: InMessage) {
                 .storeCoins(creatorEarnings)
                 .storeUint(0, 107)                 // empty payload
                 .endCell(),
-                3  // send mode: ignore errors, pay fees from message value
+                1  // send mode: pay transfer fees separately
             );
 
             // Send platform fee to platform address
@@ -76,7 +74,7 @@ fun onInternalMessage(in: InMessage) {
                 .storeCoins(platformFee)
                 .storeUint(0, 107)                     // empty payload
                 .endCell(),
-                3  // send mode: ignore errors, pay fees from message value
+                1  // send mode: pay transfer fees separately
             );
 
             // Update statistics
