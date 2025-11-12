@@ -124,13 +124,16 @@ router.post('/verify', async (req: Request, res: Response) => {
     }
 
     // Verify the transaction through the smart contract
-    const isValid = await paymentContractService.verifyPaymentTransaction(
+    // Pass buyer's wallet address to ensure the right person paid
+    const verificationResult = await paymentContractService.verifyPaymentTransaction(
       tonTransactionHash,
       transaction.amount,
-      creatorAddress
+      creatorAddress,
+      transaction.walletAddress // ✅ Verify sender matches buyer
     );
 
-    if (!isValid) {
+    if (!verificationResult.verified) {
+      logger.warn(`❌ Payment verification failed for transaction: ${transactionId}`);
       await Transaction.findOneAndUpdate(
         { transactionId },
         {
@@ -141,10 +144,36 @@ router.post('/verify', async (req: Request, res: Response) => {
 
       return res.status(400).json({ error: 'Invalid transaction' });
     }
+    
+    // Log successful verification with sender info
+    if (verificationResult.sender) {
+      logger.info(`✅ Verified sender: ${verificationResult.sender}`);
+      logger.info(`✅ Expected buyer: ${transaction.walletAddress}`);
+    }
 
-    // Mark transaction as completed
+    // Check for duplicate transaction hash (prevent replay attacks)
+    if (verificationResult.txHash) {
+      const existingTx = await Transaction.findOne({ 
+        tonTransactionHash: verificationResult.txHash,
+        status: TRANSACTION_STATUS.COMPLETED 
+      });
+      
+      if (existingTx && existingTx.transactionId !== transactionId) {
+        logger.warn(`⚠️ Duplicate transaction hash detected: ${verificationResult.txHash}`);
+        await Transaction.findOneAndUpdate(
+          { transactionId },
+          {
+            status: TRANSACTION_STATUS.FAILED,
+            tonTransactionHash: verificationResult.txHash,
+          }
+        );
+        return res.status(400).json({ error: 'Transaction already used' });
+      }
+    }
+
+    // Mark transaction as completed and store the real blockchain tx hash
     transaction.status = TRANSACTION_STATUS.COMPLETED;
-    transaction.tonTransactionHash = tonTransactionHash;
+    transaction.tonTransactionHash = verificationResult.txHash || tonTransactionHash;
     await transaction.save();
 
     await Purchase.create({

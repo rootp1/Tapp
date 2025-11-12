@@ -107,24 +107,29 @@ class PaymentContractService {
   /**
    * Verify a transaction to the payment contract
    * Retries multiple times to give the transaction time to appear on-chain
+   * @returns Object with verification status and transaction hash
    */
   async verifyPaymentTransaction(
     txBoc: string,
     expectedAmount: number,
     creatorAddress: string,
+    buyerWalletAddress?: string,
     maxRetries: number = 10,
     retryDelayMs: number = 3000
-  ): Promise<boolean> {
+  ): Promise<{ verified: boolean; txHash?: string; postId?: string; sender?: string }> {
     try {
       if (!this.contractAddress) {
         throw new Error('Contract not initialized');
       }
 
-      logger.info(`Verifying payment: amount=${expectedAmount} TON, creator=${creatorAddress.substring(0, 10)}...`);
+      logger.info(`Verifying payment: amount=${expectedAmount} TON, creator=${creatorAddress.substring(0, 10)}...${buyerWalletAddress ? `, buyer=${buyerWalletAddress.substring(0, 10)}...` : ''}`);
 
       // Calculate expected range once
       const expectedMin = expectedAmount * 0.90;
       const expectedMax = expectedAmount * 1.10;
+      
+      // Parse buyer address if provided
+      const expectedBuyerAddr = buyerWalletAddress ? Address.parse(buyerWalletAddress) : null;
 
       // Retry logic: transaction might not appear immediately
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -147,7 +152,20 @@ class PaymentContractService {
           const timeDiff = currentTime - txTime;
           const txHash = tx.hash().toString('hex');
           
-          logger.info(`TX: hash=${txHash.substring(0, 16)}..., amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
+          // Get the sender address (who paid)
+          const senderAddress = inMessage.info.src;
+          const senderStr = senderAddress?.toString() || 'unknown';
+          
+          logger.info(`TX: hash=${txHash.substring(0, 16)}..., amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago, from=${senderStr.substring(0, 10)}...`);
+          
+          // Verify sender if buyer wallet address is provided
+          if (expectedBuyerAddr && senderAddress) {
+            if (!senderAddress.equals(expectedBuyerAddr)) {
+              logger.warn(`Sender mismatch: expected ${expectedBuyerAddr.toString()}, got ${senderAddress.toString()}`);
+              continue; // Skip this transaction
+            }
+            logger.info(`✅ Sender verified: ${senderStr.substring(0, 10)}...`);
+          }
           
           // Check amount and timing
           if (receivedAmount >= expectedMin && receivedAmount <= expectedMax && timeDiff < 600) {
@@ -171,9 +189,14 @@ class PaymentContractService {
                     
                     // Verify creator address matches
                     if (messageCreatorAddress.equals(expectedCreatorAddr)) {
-                      logger.info(`✅ Transaction verified! Hash: ${txHash.substring(0, 16)}..., Amount: ${receivedAmount.toFixed(4)} TON, Time: ${timeDiff}s ago`);
+                      logger.info(`✅ Transaction verified! Hash: ${txHash.substring(0, 16)}..., Amount: ${receivedAmount.toFixed(4)} TON, Time: ${timeDiff}s ago, Sender: ${senderStr.substring(0, 10)}...`);
                       logger.info(`Message details - queryId: ${queryId}, postId: ${postId}, creator: ${messageCreatorAddress.toString()}`);
-                      return true;
+                      return { 
+                        verified: true, 
+                        txHash: txHash,
+                        postId: postId.toString(),
+                        sender: senderStr
+                      };
                     } else {
                       logger.warn(`Creator address mismatch: expected ${expectedCreatorAddr.toString()}, got ${messageCreatorAddress.toString()}`);
                     }
@@ -181,7 +204,11 @@ class PaymentContractService {
                     logger.warn(`Could not parse message body fully:`, parseError);
                     // If we can't parse but opcode matches and amount/time are correct, accept it
                     logger.info(`✅ Transaction verified by opcode and amount (hash: ${txHash.substring(0, 16)}...)`);
-                    return true;
+                    return { 
+                      verified: true, 
+                      txHash: txHash,
+                      sender: senderStr
+                    };
                   }
                 }
               } catch (bodyError) {
@@ -200,11 +227,11 @@ class PaymentContractService {
 
       logger.warn(`❌ Transaction not found after ${maxRetries} attempts. Expected: ${expectedAmount} TON (${expectedMin.toFixed(4)} - ${expectedMax.toFixed(4)} TON), Creator: ${creatorAddress.substring(0, 10)}...`);
       logger.warn(`Contract address: ${this.contractAddress.toString()}`);
-      return false;
+      return { verified: false };
 
     } catch (error) {
       logger.error('Error verifying transaction:', error);
-      return false;
+      return { verified: false };
     }
   }
 
