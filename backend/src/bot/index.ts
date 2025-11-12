@@ -21,6 +21,9 @@ interface SessionData {
     fileId?: string;
     fileName?: string;
   };
+  walletSetup?: {
+    isCreator?: boolean;
+  };
 }
 
 interface BotContext extends Context {
@@ -63,6 +66,9 @@ class TappBot {
   private setupCommands() {
 
     this.bot.command('start', async (ctx) => {
+      const args = ctx.message.text.split(' ');
+      const startParam = args[1]; // e.g., "creator" if sent as /start creator
+      
       await ctx.reply(
         '```\n' +
         '╭───────────────╮\n' +
@@ -85,6 +91,35 @@ class TappBot {
         `Get started now!`,
         { parse_mode: 'Markdown' }
       );
+      
+      // If user indicates they want to be a creator, prompt for wallet
+      if (startParam === 'creator') {
+        await ctx.reply(
+          `📝 *Creator Setup*\n\n` +
+          `To receive payments, you need to provide your TON wallet address.\n\n` +
+          `Please send your TON wallet address:`,
+          { parse_mode: 'Markdown' }
+        );
+        
+        const userId = ctx.from?.id.toString();
+        if (userId && ctx.session) {
+          ctx.session.step = 'awaiting_wallet_address';
+          ctx.session.walletSetup = { isCreator: true };
+        }
+      }
+    });
+
+    this.bot.command('setwallet', async (ctx) => {
+      await ctx.reply(
+        `📝 *Set Wallet Address*\n\n` +
+        `Please send your TON wallet address to receive payments:`,
+        { parse_mode: 'Markdown' }
+      );
+      
+      const userId = ctx.from?.id.toString();
+      if (userId && ctx.session) {
+        ctx.session.step = 'awaiting_wallet_address';
+      }
     });
 
     this.bot.command('help', async (ctx) => {
@@ -94,12 +129,14 @@ class TappBot {
         `${BOT_COMMANDS.MY_CHANNELS} - View your channels\n` +
         `${BOT_COMMANDS.EARNINGS} - Check your earnings\n` +
         `${BOT_COMMANDS.STATS} - View post statistics\n` +
+        `/setwallet - Set your TON wallet address\n` +
         `${BOT_COMMANDS.CANCEL} - Cancel current operation\n\n` +
         `*How to create a post:*\n` +
-        `1. Add this bot as admin to your channel\n` +
-        `2. Use ${BOT_COMMANDS.CREATE_POST} to start\n` +
-        `3. Follow the steps to set price and content\n` +
-        `4. Bot will post teaser with unlock button`,
+        `1. Set your wallet address with /setwallet\n` +
+        `2. Add this bot as admin to your channel\n` +
+        `3. Use ${BOT_COMMANDS.CREATE_POST} to start\n` +
+        `4. Follow the steps to set price and content\n` +
+        `5. Bot will post teaser with unlock button`,
         { parse_mode: 'Markdown' }
       );
     });
@@ -159,6 +196,9 @@ class TappBot {
       if (!session?.step) return;
 
       switch (session.step) {
+        case 'awaiting_wallet_address':
+          await this.handleWalletAddressInput(ctx);
+          break;
         case 'awaiting_price':
           await this.handlePriceInput(ctx);
           break;
@@ -209,6 +249,18 @@ class TappBot {
       const userId = ctx.from?.id.toString();
       if (!userId) return;
 
+      // Check if user has wallet address set
+      const user = await User.findOne({ telegramId: userId });
+      if (!user?.walletAddress) {
+        await ctx.reply(
+          `⚠️ *Wallet Address Required*\n\n` +
+          `Before adding channels, you need to set your TON wallet address to receive payments.\n\n` +
+          `Use /setwallet to set your wallet address.`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
       const channel = await Channel.create({
         channelId: chat.id.toString(),
         channelUsername: chat.username,
@@ -223,7 +275,9 @@ class TappBot {
 
       await ctx.reply(
         `Channel "${chat.title}" added successfully! 🎉\n\n` +
-        `You can now create premium posts for this channel using ${BOT_COMMANDS.CREATE_POST}`
+        `You can now create premium posts for this channel using ${BOT_COMMANDS.CREATE_POST}\n\n` +
+        `💰 Payments will be sent to: \`${user.walletAddress}\``,
+        { parse_mode: 'Markdown' }
       );
 
       logger.info(`Channel added: ${chat.id} by user ${userId}`);
@@ -232,9 +286,74 @@ class TappBot {
     }
   }
 
+  private async handleWalletAddressInput(ctx: BotContext) {
+    const text = (ctx.message as any)?.text;
+    const userId = ctx.from?.id.toString();
+    
+    if (!userId || !text) return;
+
+    // Basic validation for TON wallet address
+    // TON addresses are base64 strings, typically 48 characters
+    const tonAddressRegex = /^[A-Za-z0-9_-]{48}$/;
+    const tonAddressWithPrefixRegex = /^(EQ|UQ)[A-Za-z0-9_-]{46}$/;
+    
+    if (!tonAddressRegex.test(text) && !tonAddressWithPrefixRegex.test(text)) {
+      await ctx.reply(
+        `❌ Invalid TON wallet address format.\n\n` +
+        `Please send a valid TON wallet address (should be 48 characters).`
+      );
+      return;
+    }
+
+    try {
+      // Update user's wallet address
+      await User.findOneAndUpdate(
+        { telegramId: userId },
+        { 
+          walletAddress: text,
+          isCreator: true  // Set as creator when they provide wallet
+        },
+        { upsert: true }
+      );
+
+      await ctx.reply(
+        `✅ *Wallet Address Saved!*\n\n` +
+        `Your TON wallet address has been set to:\n\`${text}\`\n\n` +
+        `You can now:\n` +
+        `• Add this bot as admin to your channel\n` +
+        `• Create premium posts with ${BOT_COMMANDS.CREATE_POST}\n` +
+        `• Receive 95% of all payments directly to your wallet`,
+        { parse_mode: 'Markdown' }
+      );
+
+      // Clear session
+      if (ctx.session) {
+        ctx.session.step = undefined;
+        ctx.session.walletSetup = undefined;
+      }
+
+      logger.info(`Wallet address set for user ${userId}`);
+    } catch (error) {
+      logger.error('Error setting wallet address:', error);
+      await ctx.reply('Error saving wallet address. Please try again.');
+    }
+  }
+
   private async startPostCreation(ctx: BotContext) {
     const userId = ctx.from?.id.toString();
     if (!userId) return;
+
+    // Check if user has wallet address set
+    const user = await User.findOne({ telegramId: userId });
+    if (!user?.walletAddress) {
+      await ctx.reply(
+        `⚠️ *Wallet Address Required*\n\n` +
+        `Before creating posts, you need to set your TON wallet address to receive payments.\n\n` +
+        `Use /setwallet to set your wallet address.`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
 
     const channels = await Channel.find({ creatorId: userId, isActive: true });
 
@@ -254,8 +373,12 @@ class TappBot {
     );
 
     await ctx.reply(
+      `💰 Payments will be sent to: \`${user.walletAddress}\`\n\n` +
       'Select a channel to create a post:',
-      Markup.inlineKeyboard(buttons, { columns: 1 })
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(buttons, { columns: 1 })
+      }
     );
   }
 
@@ -565,12 +688,17 @@ class TappBot {
     const user = await User.findOne({ telegramId: userId });
     if (!user) return;
 
-    await ctx.reply(
-      `*Your Earnings:*\n\n` +
+    let message = `*Your Earnings:*\n\n` +
       `💰 Total Earned: ${user.totalEarned.toFixed(2)} TON\n` +
-      `💸 Platform keeps 5%, you get 95%`,
-      { parse_mode: 'Markdown' }
-    );
+      `💸 Platform keeps 5%, you get 95%\n\n`;
+
+    if (user.walletAddress) {
+      message += `💳 Wallet: \`${user.walletAddress}\``;
+    } else {
+      message += `⚠️ No wallet address set. Use /setwallet to add one.`;
+    }
+
+    await ctx.reply(message, { parse_mode: 'Markdown' });
   }
 
   private async showStats(ctx: BotContext) {
