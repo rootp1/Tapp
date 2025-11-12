@@ -209,11 +209,20 @@ router.get('/:transactionId/status', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Transaction not found' });
     }
 
+    // Build explorer link if transaction hash exists
+    let explorerLink = null;
+    if (transaction.tonTransactionHash) {
+      const network = process.env.TON_NETWORK === 'mainnet' ? '' : 'testnet.';
+      explorerLink = `https://${network}tonscan.org/tx/${transaction.tonTransactionHash}`;
+    }
+
     res.json({
       transactionId: transaction.transactionId,
       status: transaction.status,
       amount: transaction.amount,
       currency: transaction.currency,
+      tonTransactionHash: transaction.tonTransactionHash,
+      explorerLink,
     });
   } catch (error) {
     logger.error('Error fetching transaction status:', error);
