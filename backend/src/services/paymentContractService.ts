@@ -1,4 +1,4 @@
-import { Address, TonClient, beginCell, OpenedContract } from '@ton/ton';
+import { Address, TonClient, beginCell, OpenedContract, Cell } from '@ton/ton';
 import { PaymentContract } from '../../wrappers/PaymentContract';
 import { logger } from '../utils/logger';
 
@@ -109,7 +109,7 @@ class PaymentContractService {
    * Verify a transaction to the payment contract
    */
   async verifyPaymentTransaction(
-    txBocOrHash: string,
+    txBoc: string,
     expectedAmount: number,
     creatorAddress: string
   ): Promise<boolean> {
@@ -118,54 +118,138 @@ class PaymentContractService {
         throw new Error('Contract not initialized');
       }
 
-      // Get recent transactions for the contract
-      const transactions = await this.client.getTransactions(this.contractAddress, { limit: 50 });
-
-      logger.info(`Checking ${transactions.length} recent transactions for amount ${expectedAmount} TON`);
-
-      // The txBocOrHash could be either a BOC or a hash
-      // For simplicity, we'll verify by checking recent transactions for matching amount
-      // In production, you'd want more robust verification
+      // Step 1: Decode the BOC to get the transaction hash
+      let txCell: Cell;
+      let txHash: string;
       
-      let isValid = false;
-      const expectedMin = expectedAmount * 0.90; // 10% tolerance for fees
-      const expectedMax = expectedAmount * 1.10;
+      try {
+        // BOC is base64 encoded
+        const bocBuffer = Buffer.from(txBoc, 'base64');
+        txCell = Cell.fromBoc(bocBuffer)[0];
+        txHash = txCell.hash().toString('hex');
+        logger.info(`Decoded transaction hash: ${txHash}`);
+      } catch (bocError) {
+        logger.error('Failed to decode BOC:', bocError);
+        // Fallback: treat as hash string if BOC decode fails
+        txHash = txBoc;
+        logger.info(`Treating as hash string: ${txHash}`);
+      }
 
+      // Step 2: Get recent transactions from the contract
+      const transactions = await this.client.getTransactions(this.contractAddress, { limit: 50 });
+      logger.info(`Checking ${transactions.length} recent transactions for hash: ${txHash.substring(0, 16)}...`);
+
+      // Step 3: Find the specific transaction by hash
+      let foundTx = null;
       for (const tx of transactions) {
-        const inMessage = tx.inMessage;
-        if (!inMessage || inMessage.info.type !== 'internal') {
-          continue;
+        const currentTxHash = tx.hash().toString('hex');
+        
+        if (currentTxHash === txHash) {
+          foundTx = tx;
+          logger.info(`✅ Found transaction by hash!`);
+          break;
         }
+      }
 
-        const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
+      // If not found by hash, try amount-based matching as fallback (for debugging)
+      if (!foundTx) {
+        logger.warn(`Transaction hash not found. Attempting fallback verification by amount...`);
         
-        // Log each transaction for debugging
-        const txTime = tx.now;
+        const expectedMin = expectedAmount * 0.90;
+        const expectedMax = expectedAmount * 1.10;
         const currentTime = Math.floor(Date.now() / 1000);
-        const timeDiff = currentTime - txTime;
-        
-        logger.info(`TX: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago, hash=${tx.hash().toString('hex').substring(0, 16)}...`);
-        
-        // Check if this transaction matches our expected amount and is recent
-        if (receivedAmount >= expectedMin && receivedAmount <= expectedMax) {
-          // Additional validation: check if transaction is recent (within last 10 minutes)
-          if (timeDiff < 600) { // 10 minutes
-            logger.info(`✅ Found matching transaction: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
-            isValid = true;
+
+        for (const tx of transactions) {
+          const inMessage = tx.inMessage;
+          if (!inMessage || inMessage.info.type !== 'internal') {
+            continue;
+          }
+
+          const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
+          const txTime = tx.now;
+          const timeDiff = currentTime - txTime;
+          
+          logger.info(`TX: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago, hash=${tx.hash().toString('hex').substring(0, 16)}...`);
+          
+          if (receivedAmount >= expectedMin && receivedAmount <= expectedMax && timeDiff < 600) {
+            foundTx = tx;
+            logger.info(`⚠️ Found matching transaction by amount (fallback): ${receivedAmount.toFixed(4)} TON`);
             break;
-          } else {
-            logger.warn(`Transaction matches amount but is too old: ${timeDiff}s ago`);
           }
         }
       }
 
-      if (!isValid) {
-        logger.warn(`❌ Transaction verification failed. Expected amount: ${expectedAmount} TON (tolerance: ${expectedMin.toFixed(4)} - ${expectedMax.toFixed(4)} TON)`);
+      if (!foundTx) {
+        logger.warn(`❌ Transaction not found. Hash: ${txHash.substring(0, 16)}..., Expected: ${expectedAmount} TON`);
         return false;
       }
 
-      logger.info(`✅ Transaction verified successfully`);
+      // Step 4: Verify the transaction details
+      const inMessage = foundTx.inMessage;
+      if (!inMessage || inMessage.info.type !== 'internal') {
+        logger.warn(`❌ Invalid transaction type`);
+        return false;
+      }
+
+      // Verify amount
+      const receivedAmount = Number(inMessage.info.value.coins) / 1e9;
+      const expectedMin = expectedAmount * 0.90;
+      const expectedMax = expectedAmount * 1.10;
+      
+      if (receivedAmount < expectedMin || receivedAmount > expectedMax) {
+        logger.warn(`❌ Amount mismatch: received ${receivedAmount} TON, expected ${expectedAmount} TON`);
+        return false;
+      }
+
+      // Step 5: Verify message body contains ProcessPayment opcode
+      if (inMessage.body) {
+        try {
+          const bodySlice = inMessage.body.beginParse();
+          const opcode = bodySlice.loadUint(32);
+          
+          // ProcessPayment opcode is 0x7e8764ef
+          if (opcode === 0x7e8764ef) {
+            logger.info(`✅ ProcessPayment message verified (opcode: 0x${opcode.toString(16)})`);
+            
+            // Additionally verify the creator address in the message
+            try {
+              const queryId = bodySlice.loadUintBig(64);
+              const postId = bodySlice.loadUintBig(64);
+              const messageCreatorAddress = bodySlice.loadAddress();
+              
+              const expectedCreatorAddr = Address.parse(creatorAddress);
+              
+              if (messageCreatorAddress.equals(expectedCreatorAddr)) {
+                logger.info(`✅ Creator address verified in message`);
+              } else {
+                logger.warn(`⚠️ Creator address mismatch in message: ${messageCreatorAddress.toString()} vs ${expectedCreatorAddr.toString()}`);
+              }
+              
+              logger.info(`Message details - queryId: ${queryId}, postId: ${postId}`);
+            } catch (parseError) {
+              logger.warn(`Could not parse full message body, but opcode is correct`);
+            }
+          } else {
+            logger.warn(`⚠️ Unexpected opcode: 0x${opcode.toString(16)}, expected 0x7e8764ef`);
+          }
+        } catch (bodyError) {
+          logger.warn(`Could not parse message body:`, bodyError);
+        }
+      }
+
+      // Step 6: Verify transaction timing (must be recent)
+      const txTime = foundTx.now;
+      const currentTime = Math.floor(Date.now() / 1000);
+      const timeDiff = currentTime - txTime;
+      
+      if (timeDiff > 600) { // 10 minutes
+        logger.warn(`❌ Transaction too old: ${timeDiff}s ago`);
+        return false;
+      }
+
+      logger.info(`✅ Transaction fully verified: amount=${receivedAmount.toFixed(4)} TON, time=${timeDiff}s ago`);
       return true;
+
     } catch (error) {
       logger.error('Error verifying transaction:', error);
       return false;
