@@ -1,27 +1,45 @@
 # Tapp - Telegram + TON Micropayment Platform
 
-Tapp is a Telegram + TON blockchain-based micropayment app that lets creators monetize individual Telegram posts. Users can unlock premium content with one-tap TON payments through a Telegram Mini App.
+[![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue?logo=telegram)](https://t.me/YOUR_BOT_USERNAME)
+[![TON](https://img.shields.io/badge/TON-Blockchain-0098EA?logo=ton)](https://ton.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Features
+Tapp is a Telegram + TON blockchain-based micropayment platform that lets creators monetize individual Telegram posts. Users can unlock premium content with one-tap TON payments through a Telegram Mini App.
+
+## 🚀 Quick Start
+
+**Try it now:** [@YOUR_BOT_USERNAME](https://t.me/YOUR_BOT_USERNAME)
+
+## ✨ Features
 
 ### For Creators
-- Onboard via Telegram bot (@TappBot)
-- Add the bot as admin to their channel
-- Create premium posts directly through chat (upload file, set price, add teaser)
-- Automatically publish teaser message with "Unlock" button
-- View earnings and analytics (views, purchases, total TON earned)
-- Earn 95% of payment (platform keeps 5% fee)
+- 🤖 Onboard via Telegram bot with simple commands
+- 📢 Add the bot as admin to your channel
+- 📝 Create premium posts directly through chat (upload file, set price, add teaser)
+- 🎯 Automatically publish teaser message with "Unlock" button
+- 📊 View earnings and analytics (views, purchases, total TON earned)
+- 💰 Earn 95% of payment (platform keeps 5% fee)
+- 💼 Set your TON wallet address to receive payments
 
 ### For Users
-- Tap "Unlock" on premium post teaser inside Telegram
-- Mini App opens showing post preview and price
-- Connect TON wallet via TON Connect and make payment
-- Receive premium content directly in Telegram DM after verification
-- Transaction receipt and content stored in purchase history
+- 👆 Tap "Unlock" on premium post teaser inside Telegram
+- 📱 Mini App opens showing post preview and price
+- 🔗 Connect TON wallet via TON Connect and make payment
+- 📬 Receive premium content directly in Telegram DM after verification
+- 🧾 Transaction receipt and content stored in purchase history
 
 ### For Admins
-- Dashboard to monitor transactions, users, and posts
-- Verify creators and flag spam/abuse
+- 📈 Dashboard to monitor transactions, users, and posts
+- ✅ Verify creators and flag spam/abuse
+- 🔍 Real-time platform statistics
+
+### 🆕 Backend Status Monitoring
+- ⚡ **Real-time status indicator** in webapp showing backend health
+- 🟢 **Visual health monitoring** with response time tracking
+- 🚀 **One-click wake-up button** for Render free tier sleep mode
+- 📱 **/status command** in Telegram bot to check backend availability
+- 🔄 **Auto-refresh** every 30 seconds to monitor backend health
+- ⏳ **Clear feedback** during server wake-up process (30-60 seconds)
 
 ## Tech Stack
 
@@ -107,6 +125,7 @@ cd Tapp
    mychannels - View your channels
    earnings - Check your earnings
    stats - View post statistics
+   status - Check backend server status
    cancel - Cancel current operation
    ```
 
@@ -266,19 +285,24 @@ npm start
 
 5. **View statistics**: Send `/stats` to see post performance
 
+6. **Check backend status**: Send `/status` to check if the server is online
+
 ### For Users
 
 1. **See premium post**: Browse channels with Tapp-enabled premium content
 
 2. **Click "Unlock" button**: Opens the Mini App
 
-3. **Connect wallet**: Click "Connect Wallet" and select your TON wallet
+3. **Check backend status**: Look at the status indicator (🟢/🟡/🟠/🔴) in top-right corner
+   - If offline (🔴), click to open panel and use "Wake Up Server" button
 
-4. **Pay to unlock**: Click "Unlock for X TON" to make payment
+4. **Connect wallet**: Click "Connect Wallet" and select your TON wallet
 
-5. **Receive content**: Content will be sent to your Telegram DM
+5. **Pay to unlock**: Click "Unlock for X TON" to make payment
 
-6. **View history**: All your purchases are tracked
+6. **Receive content**: Content will be sent to your Telegram DM
+
+7. **View history**: All your purchases are tracked
 
 ### For Admins
 
@@ -413,6 +437,20 @@ POST /api/admin/posts/:postId/deactivate?adminId=YOUR_ID
 
 ## Troubleshooting
 
+### Backend Status Issues (Render Free Tier)
+
+**Server shows offline or slow:**
+- The free tier sleeps after 15 minutes of inactivity
+- Click the status indicator (top-right of webapp)
+- Use "🚀 Wake Up Server" button
+- Wait 30-60 seconds for server to wake up
+- Or send `/status` command in Telegram bot
+
+**Wake-up taking too long:**
+- First wake-up can take up to 60 seconds
+- Subsequent requests will be faster
+- Check `/status` in bot to verify server is responding
+
 ### Bot not responding
 - Check if bot token is correct
 - Verify MongoDB connection
@@ -458,6 +496,14 @@ For issues and questions:
 - Contact: your-email@example.com
 
 ## Roadmap
+
+### Completed Features ✅
+- [x] TON blockchain payment integration
+- [x] Telegram Mini App for payments
+- [x] Smart contract for payment verification
+- [x] Backend status monitoring system
+- [x] One-click server wake-up for free tier hosting
+- [x] Real-time health checks
 
 ### Stretch Features (Future Development)
 - [ ] Web dashboard for creators
