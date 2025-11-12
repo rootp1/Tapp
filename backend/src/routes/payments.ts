@@ -110,9 +110,14 @@ router.post('/verify', async (req: Request, res: Response) => {
 
     logger.info(`Processing payment verification for transaction: ${transactionId}, hash: ${tonTransactionHash.substring(0, 50)}...`);
 
-    // Get creator's wallet address for verification
-    const creator = await User.findOne({ telegramId: transaction.creatorId });
-    const creatorAddress = creator?.walletAddress || '';
+    // Get creator's wallet address for verification from post
+    const postData = await Post.findOne({ postId: transaction.postId });
+    let creatorAddress = postData?.creatorWalletAddress || '';
+    
+    if (!creatorAddress) {
+      const creator = await User.findOne({ telegramId: transaction.creatorId });
+      creatorAddress = creator?.walletAddress || '';
+    }
 
     // Verify the transaction through the smart contract
     const isValid = await paymentContractService.verifyPaymentTransaction(
