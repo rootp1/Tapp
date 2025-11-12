@@ -179,9 +179,18 @@ router.post('/verify', async (req: Request, res: Response) => {
 
     await tappBot.deliverContent(transaction.buyerId, transaction.postId);
 
+    // Build explorer link
+    const network = process.env.TON_NETWORK === 'mainnet' ? '' : 'testnet.';
+    const explorerLink = `https://${network}tonscan.org/tx/${tonTransactionHash}`;
+
     res.json({
       success: true,
       message: 'Payment verified. Content delivered.',
+      transactionId: transaction.transactionId,
+      tonTransactionHash,
+      explorerLink,
+      amount: transaction.amount,
+      creatorEarnings: transaction.creatorEarnings,
     });
 
     logger.info(`Payment verified: ${transactionId}`);
