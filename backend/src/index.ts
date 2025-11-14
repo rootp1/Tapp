@@ -9,6 +9,7 @@ import { logger } from './utils/logger';
 import postsRouter from './routes/posts';
 import paymentsRouter from './routes/payments';
 import adminRouter from './routes/admin';
+import creatorRouter from './routes/creator';
 import { tappBot } from './bot/index';
 
 const app: Express = express();
@@ -28,6 +29,7 @@ app.use(tappBot.webhookCallback('/webhook/telegram'));
 app.use('/api/posts', postsRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/creator', creatorRouter);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
