@@ -133,7 +133,13 @@ function App() {
         <div className="card" style={{ margin: '20px' }}>
           <div className="card-body">
             <div className="alert alert-error">
-              ⚠️ {error}
+              ⚠️ <strong>Error Loading Profile</strong>
+              <p style={{ marginTop: '8px', fontSize: '13px', wordBreak: 'break-word' }}>
+                {error}
+              </p>
+              <p style={{ marginTop: '8px', fontSize: '11px', opacity: 0.7 }}>
+                API: {API_BASE_URL}
+              </p>
             </div>
             <button className="btn btn-primary" onClick={loadUserData}>
               Retry
