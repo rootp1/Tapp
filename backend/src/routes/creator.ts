@@ -4,6 +4,7 @@ import Channel from '../models/Channel';
 import Post from '../models/Post';
 import { logger } from '../utils/logger';
 import { generateId } from '../utils/helpers';
+import { tappBot } from '../bot/index';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -195,41 +196,104 @@ router.post('/posts', upload.fields([
 
     const postId = generateId('post');
 
-    // Here you would normally:
-    // 1. Upload preview to Telegram bot
-    // 2. Post teaser to channel
-    // 3. Store content securely
-    // For now, we'll create the post record
+    // Get the bot instance
+    const bot = tappBot.getBot();
 
-    const post = await Post.create({
-      postId,
-      channelId,
-      creatorId: userId,
-      creatorWalletAddress: walletAddress,
-      teaserMessageId: 0, // Would be set after posting to Telegram
-      price: parseFloat(price),
-      currency: 'TON',
-      teaserText,
-      previewFileId: previewFile?.filename,
-      contentType: contentType || 'text',
-      contentData: contentData || '',
-      fileId: contentFile?.filename,
-      fileName: contentFile?.originalname,
-    });
+    // Create the web app URL for unlocking
+    const webAppUrl = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}/myapp?startapp=${postId}`;
 
-    // Update channel stats
-    await Channel.findOneAndUpdate(
-      { channelId },
-      { $inc: { totalPosts: 1 } }
-    );
+    // Prepare the teaser message
+    const caption = `🔒 *Premium Content*\n\n${teaserText}\n\n💎 Price: ${price} TON`;
+    
+    try {
+      let teaserMessage;
 
-    logger.info(`Post created: ${postId} by user ${userId}`);
+      // Post to Telegram channel
+      if (previewFile) {
+        // If there's a preview file, send it as photo/video/document
+        const filePath = path.join(__dirname, '../../uploads', previewFile.filename);
+        
+        try {
+          // Try as photo first
+          teaserMessage = await bot.telegram.sendPhoto(
+            channelId,
+            { source: filePath },
+            {
+              caption,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '🔓 Unlock Now', url: webAppUrl }
+                ]]
+              }
+            }
+          );
+        } catch (photoError) {
+          // If not a photo, try as document
+          teaserMessage = await bot.telegram.sendDocument(
+            channelId,
+            { source: filePath },
+            {
+              caption,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '🔓 Unlock Now', url: webAppUrl }
+                ]]
+              }
+            }
+          );
+        }
+      } else {
+        // No preview, just send text
+        teaserMessage = await bot.telegram.sendMessage(
+          channelId,
+          caption,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '🔓 Unlock Now', url: webAppUrl }
+              ]]
+            }
+          }
+        );
+      }
 
-    res.json({ 
-      success: true, 
-      postId,
-      message: 'Post created successfully' 
-    });
+      // Now create the post in database with the message ID
+      const post = await Post.create({
+        postId,
+        channelId,
+        creatorId: userId,
+        creatorWalletAddress: walletAddress,
+        teaserMessageId: teaserMessage.message_id,
+        price: parseFloat(price),
+        currency: 'TON',
+        teaserText,
+        previewFileId: previewFile?.filename,
+        contentType: contentType || 'text',
+        contentData: contentData || '',
+        fileId: contentFile?.filename,
+        fileName: contentFile?.originalname,
+      });
+
+      // Update channel stats
+      await Channel.findOneAndUpdate(
+        { channelId },
+        { $inc: { totalPosts: 1 } }
+      );
+
+      logger.info(`Post created and published: ${postId} by user ${userId}`);
+
+      res.json({ 
+        success: true, 
+        postId,
+        message: 'Post created and published successfully' 
+      });
+    } catch (telegramError) {
+      logger.error('Error posting to Telegram:', telegramError);
+      res.status(500).json({ error: 'Failed to publish post to channel' });
+    }
   } catch (error) {
     logger.error('Error creating post:', error);
     res.status(500).json({ error: 'Failed to create post' });
