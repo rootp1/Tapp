@@ -22,6 +22,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [error, setError] = useState<string>('');
   const userFriendlyAddress = useTonAddress();
   
   const tg = window.Telegram?.WebApp;
@@ -51,14 +52,27 @@ function App() {
       setLoading(true);
       const userId = tg?.initDataUnsafe?.user?.id?.toString();
       
+      console.log('Telegram WebApp:', tg);
+      console.log('User ID:', userId);
+      console.log('Init Data:', tg?.initDataUnsafe);
+      
       if (!userId) {
-        throw new Error('User ID not found');
+        // For testing outside Telegram, use a demo user
+        console.warn('No Telegram user ID found, using demo mode');
+        setUserData({
+          telegramId: 'demo',
+          isCreator: false,
+          totalEarned: 0,
+        });
+        setLoading(false);
+        return;
       }
 
       const response = await axios.get(`${API_BASE_URL}/creator/profile`, {
         params: { userId },
       });
 
+      console.log('Profile response:', response.data);
       setUserData(response.data);
       
       // Load wallet from localStorage if available
@@ -68,7 +82,8 @@ function App() {
       }
     } catch (err: any) {
       console.error('Error loading user data:', err);
-      tg?.showAlert('Failed to load profile. Please try again.');
+      console.error('Error details:', err.response?.data);
+      setError(err.response?.data?.error || err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -107,6 +122,23 @@ function App() {
         <div className="loading">
           <div className="spinner"></div>
           <p>Loading Creator Studio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-container">
+        <div className="card" style={{ margin: '20px' }}>
+          <div className="card-body">
+            <div className="alert alert-error">
+              ⚠️ {error}
+            </div>
+            <button className="btn btn-primary" onClick={loadUserData}>
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
