@@ -81,9 +81,9 @@ class TappBot {
         `Welcome to Tapp! 🚀\n\n` +
         `Monetize your Telegram posts with TON payments.\n\n` +
         `🎨 *For Creators:*\n` +
-        `• Create premium posts with /createpost\n` +
-        `• Add me as admin to your channel\n` +
-        `• Set prices and earn 95% of payments\n\n` +
+        `• Use the Creator Studio menu button below\n` +
+        `• Add this bot as admin to your channel\n` +
+        `• Create posts and earn 95% of payments\n\n` +
         `💎 *For Users:*\n` +
         `• Unlock premium content with TON\n` +
         `• Instant access after payment\n` +
@@ -96,16 +96,13 @@ class TappBot {
       if (startParam === 'creator') {
         await ctx.reply(
           `📝 *Creator Setup*\n\n` +
-          `To receive payments, you need to provide your TON wallet address.\n\n` +
-          `Please send your TON wallet address:`,
+          `Open the Creator Studio from the menu button below to:\n` +
+          `• Connect your TON wallet\n` +
+          `• Manage your channels\n` +
+          `• Create premium posts\n` +
+          `• Track your earnings`,
           { parse_mode: 'Markdown' }
         );
-        
-        const userId = ctx.from?.id.toString();
-        if (userId && ctx.session) {
-          ctx.session.step = 'awaiting_wallet_address';
-          ctx.session.walletSetup = { isCreator: true };
-        }
       }
     });
 
@@ -125,19 +122,16 @@ class TappBot {
     this.bot.command('help', async (ctx) => {
       await ctx.reply(
         `*Available Commands:*\n\n` +
-        `${BOT_COMMANDS.CREATE_POST} - Create a new premium post\n` +
-        `${BOT_COMMANDS.MY_CHANNELS} - View your channels\n` +
-        `${BOT_COMMANDS.EARNINGS} - Check your earnings\n` +
-        `${BOT_COMMANDS.STATS} - View post statistics\n` +
         `${BOT_COMMANDS.STATUS} - Check backend server status\n` +
-        `/setwallet - Set your TON wallet address\n` +
         `${BOT_COMMANDS.CANCEL} - Cancel current operation\n\n` +
-        `*How to create a post:*\n` +
-        `1. Set your wallet address with /setwallet\n` +
-        `2. Add this bot as admin to your channel\n` +
-        `3. Use ${BOT_COMMANDS.CREATE_POST} to start\n` +
-        `4. Follow the steps to set price and content\n` +
-        `5. Bot will post teaser with unlock button`,
+        `*For Creators:*\n` +
+        `Use the "Creator Studio" menu button to:\n` +
+        `• Connect your TON wallet\n` +
+        `• Add your channel\n` +
+        `• Create premium posts\n` +
+        `• View earnings and stats\n\n` +
+        `*For Users:*\n` +
+        `Tap "Unlock" on premium posts to purchase with TON`,
         { parse_mode: 'Markdown' }
       );
     });
@@ -254,18 +248,6 @@ class TappBot {
       const userId = ctx.from?.id.toString();
       if (!userId) return;
 
-      // Check if user has wallet address set
-      const user = await User.findOne({ telegramId: userId });
-      if (!user?.walletAddress) {
-        await ctx.reply(
-          `⚠️ *Wallet Address Required*\n\n` +
-          `Before adding channels, you need to set your TON wallet address to receive payments.\n\n` +
-          `Use /setwallet to set your wallet address.`,
-          { parse_mode: 'Markdown' }
-        );
-        return;
-      }
-
       const channel = await Channel.create({
         channelId: chat.id.toString(),
         channelUsername: chat.username,
@@ -280,8 +262,10 @@ class TappBot {
 
       await ctx.reply(
         `Channel "${chat.title}" added successfully! 🎉\n\n` +
-        `You can now create premium posts for this channel using ${BOT_COMMANDS.CREATE_POST}\n\n` +
-        `💰 Payments will be sent to: \`${user.walletAddress}\``,
+        `Open the Creator Studio from the menu button to:\n` +
+        `• Connect your TON wallet\n` +
+        `• Create premium posts\n` +
+        `• Track your earnings`,
         { parse_mode: 'Markdown' }
       );
 
