@@ -134,6 +134,8 @@ function CreatePost({ onPostCreated }: CreatePostProps) {
         },
       });
 
+      console.log('Post created:', response.data);
+
       tg?.HapticFeedback.notificationOccurred('success');
       tg?.showAlert('Post created successfully! 🎉', () => {
         onPostCreated();

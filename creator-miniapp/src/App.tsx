@@ -32,11 +32,6 @@ function App() {
       tg?.ready();
       tg?.expand();
       tg?.enableClosingConfirmation();
-      
-      // Set header color to match theme
-      if (tg?.setHeaderColor) {
-        tg.setHeaderColor('#9333EA');
-      }
     } catch (e) {
       console.error('Failed to initialize Telegram Mini App:', e);
     }

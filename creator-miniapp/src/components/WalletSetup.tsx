@@ -1,10 +1,10 @@
 import { TonConnectButton } from '@tonconnect/ui-react';
 
 interface WalletSetupProps {
-  onWalletConnected: () => void;
+  onWalletConnected?: () => void;
 }
 
-function WalletSetup({ onWalletConnected }: WalletSetupProps) {
+function WalletSetup({}: WalletSetupProps) {
   return (
     <div className="container" style={{ paddingTop: '40px' }}>
       <div className="card">
